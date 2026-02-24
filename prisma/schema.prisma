@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  username     String        @unique
+  password     String
+  monthlyGoal  Float         @default(3000)
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+}
+
+model Transaction {
+  id                String   @id @default(uuid())
+  desc              String
+  amount            Float
+  amountUSD         Float?
+  amountARS         Float?
+  amountILS         Float?
+  amountEUR         Float?
+  tag               String
+  type              String
+  date              String
+  icon              String
+  details           String?
+  excludeFromBudget Boolean  @default(false)
+  goalType          String   @default("meta")
+  isCancelled       Boolean  @default(false)
+  periodicity       Int?
+  paymentMethod     String?
+  cardDigits        String?
+  user              User     @relation(fields: [userId], references: [id])
+  userId            String
+  createdAt         DateTime @default(now())
+}

@@ -1,0 +1,228 @@
+/* ── AuthModal.css ──────────────────────────────────────── */
+
+.auth-overlay {
+    position: fixed;
+    inset: 0;
+    background: #0e100e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 1rem;
+}
+
+.auth-box {
+    background: #161917;
+    border: 1px solid #2b2e2b;
+    width: 100%;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ── Logo bar ── */
+.auth-logo-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 1rem 1.4rem 0.75rem;
+    border-bottom: 1px solid #222522;
+}
+
+.auth-logo-icon {
+    width: 28px;
+    height: 28px;
+    background: #5c7152;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.auth-logo-name {
+    font-size: 0.78rem;
+    font-weight: 900;
+    color: #e0ddd4;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+/* ── Body ── */
+.auth-body {
+    padding: 1.5rem 1.4rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+}
+
+/* ── Title ── */
+.auth-title {
+    font-size: 1.55rem;
+    font-weight: 900;
+    color: #e0ddd4;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+/* ── Toggle login / registro ── */
+.auth-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: #1d201d;
+    border: 1px solid #2b2e2b;
+    padding: 3px;
+    gap: 3px;
+}
+
+.auth-toggle-opt {
+    padding: 0.55rem;
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+    transition: background 0.15s, color 0.15s;
+    background: transparent;
+    color: #737670;
+}
+
+.auth-toggle-opt.active {
+    background: #5c7152;
+    color: #fff;
+}
+
+/* ── Form fields ── */
+.auth-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.auth-field-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.auth-label {
+    font-size: 0.57rem;
+    font-weight: 800;
+    color: #737670;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}
+
+.auth-forgot {
+    font-size: 0.52rem;
+    font-weight: 700;
+    color: #5c7152;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: inherit;
+    padding: 0;
+}
+
+.auth-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.auth-input {
+    width: 100%;
+    background: #1d201d;
+    border: 1px solid #2b2e2b;
+    color: #e0ddd4;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.7rem 0.9rem;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+}
+
+.auth-input:focus {
+    border-color: #5c7152;
+}
+
+.auth-input--password {
+    padding-right: 2.75rem;
+}
+
+.auth-eye-btn {
+    position: absolute;
+    right: 0.75rem;
+    background: none;
+    border: none;
+    color: #737670;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+}
+
+.auth-eye-btn:hover {
+    color: #e0ddd4;
+}
+
+/* ── Submit button ── */
+.auth-submit {
+    width: 100%;
+    background: #5c7152;
+    border: none;
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.9rem;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    margin-top: 0.1rem;
+}
+
+.auth-submit:hover {
+    opacity: 0.88;
+}
+
+.auth-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ── Footer ── */
+.auth-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.7rem 1.4rem;
+    border-top: 1px solid #1e211e;
+}
+
+.auth-footer-version {
+    font-size: 0.5rem;
+    font-weight: 700;
+    color: #4a4d4a;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.auth-footer-icons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    color: #4a4d4a;
+}
