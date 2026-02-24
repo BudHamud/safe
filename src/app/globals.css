@@ -79,11 +79,15 @@ html[data-theme="dark"] {
   padding: 0;
 }
 
+html {
+  background-color: var(--bg);
+}
+
 body {
   background-color: var(--bg);
   color: var(--text-main);
   font-family: var(--font-sans);
-  min-height: 100vh;
+  min-height: 100dvh;
   transition: background-color 0.3s ease, color 0.3s ease;
   line-height: 1.5;
 }
@@ -141,6 +145,7 @@ input {
 ::-webkit-scrollbar-corner {
   background: var(--bg);
 }
+
 /* ── Card Digits Input Mask ────────────────────────── */
 .card-digits-wrapper {
   display: flex;

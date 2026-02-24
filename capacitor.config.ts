@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'CajaFuerte',
   webDir: 'public',
   server: {
-    url: 'http://192.168.68.54:3000',
+    url: 'https://zafe.vercel.app',
     cleartext: true
   }
 };

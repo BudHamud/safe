@@ -2,10 +2,11 @@
 
 .app-wrapper {
     display: flex;
-    min-height: 100vh;
+    min-height: 100dvh;
     width: 100%;
     position: relative;
     overflow-x: hidden;
+    background-color: var(--bg);
 }
 
 /* SIDEBAR: Narrower, minimalist */
@@ -18,7 +19,7 @@
     position: fixed;
     top: 0;
     left: 0;
-    height: 100vh;
+    height: 100dvh;
     z-index: 40;
 }
 
@@ -162,7 +163,7 @@
     flex-direction: column;
     gap: 0;
     margin-left: 250px;
-    min-height: 100vh;
+    min-height: 100dvh;
     /* Offset the fixed sidebar */
 }
 
@@ -774,11 +775,11 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
     }
 
     .sidebar {
-        width: calc(100% - 2rem);
-        height: 70px;
+        width: 100%;
+        height: calc(70px + env(safe-area-inset-bottom, 0px));
         position: fixed;
-        bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-        left: 1rem;
+        bottom: 0px;
+        left: 0;
         top: auto;
         flex-direction: row;
         border: none;
@@ -786,6 +787,7 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
         z-index: 50;
         box-shadow: none;
         border-radius: 0;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
     }
 
     .brand,
