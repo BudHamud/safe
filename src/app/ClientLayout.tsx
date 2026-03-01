@@ -5,26 +5,110 @@ import { Sidebar } from "./components/Sidebar";
 import { AuthModal } from "./components/AuthModal";
 import { NewOrderModal } from "./components/NewOrderModal";
 import { TransactionDetailsModal } from "./components/TransactionDetailsModal";
+import { BankNotifToast } from "./components/BankNotifToast";
 import { IconShapes } from "./components/Icons";
 import { useAppContext } from "../context/AppContext";
-import { usePathname } from "next/navigation";
-import "./page.css"; // Ensure global styles apply if needed here
+import { useBankNotifications, PendingBankTransaction } from "../hooks/useBankNotifications";
+import { useLanguage } from "../context/LanguageContext";
+import { usePathname, useRouter } from "next/navigation";
+import { useAndroidBackButton } from "../hooks/useAndroidBackButton";
+import "./page.css";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     const context = useAppContext();
     const pathname = usePathname();
+    const router = useRouter();
+    const { t } = useLanguage();
+
+    // Handle Android hardware back button
+    useAndroidBackButton();
+
+    // ── Bank sync settings (synced from ProfileTab via localStorage) ──
+    const [bankSyncEnabled, setBankSyncEnabled] = useState<boolean>(() => {
+        if (typeof window === 'undefined') return false;
+        return localStorage.getItem('bankSyncEnabled') === 'true';
+    });
+    const [autoAddEnabled, setAutoAddEnabled] = useState<boolean>(() => {
+        if (typeof window === 'undefined') return false;
+        return localStorage.getItem('bankAutoAddEnabled') === 'true';
+    });
+
+    // ── Notification panel state ───────────────────────────────
+    const [notifPanelOpen, setNotifPanelOpen] = useState(false);
+    // Keeps track of which pending DB entry to delete after modal save
+    const [pendingNotifId, setPendingNotifId] = useState<string | null>(null);
+
+    const onAutoSaved = React.useCallback(() => {
+        if (context.userId) context.loadUserTransactions(context.userId);
+    }, [context.userId, context.loadUserTransactions]);
+
+    // ── Bank notification listener ─────────────────────────────
+    const {
+        pending,
+        permissionGranted,
+        requestPermission,
+        dismissPending,
+        processNotification,
+    } = useBankNotifications({
+        enabled: bankSyncEnabled,
+        userId: context.userId ?? '',
+        autoAdd: autoAddEnabled,
+        apiBase: '',
+        onAutoSaved,
+    });
+
+    // ── Handle confirm: open NewOrderModal pre-filled ──────────
+    const handleBankConfirm = React.useCallback(async (item: PendingBankTransaction) => {
+        // Build initial data for the modal from the parsed notification
+        const initialData = {
+            desc: item.merchant,
+            amount: item.amount,
+            tag: item.tag,
+            type: item.type as 'expense' | 'income',
+            currency: item.currency,
+        };
+        // Remember which pending entry to delete after save
+        setPendingNotifId(item.id);
+        // Close panel if open, then open the pre-filled modal
+        setNotifPanelOpen(false);
+        context.setAddModalInitialData(initialData);
+        context.setIsAddModalOpen(true);
+    }, [context]);
+
+    // ── Expose bank sync controls globally so ProfileTab can call them ──
+    if (typeof window !== 'undefined') {
+        (window as any).__setBankSync = (enabled: boolean) => {
+            setBankSyncEnabled(enabled);
+            localStorage.setItem('bankSyncEnabled', String(enabled));
+            if (enabled && permissionGranted === false) {
+                requestPermission();
+            }
+        };
+        (window as any).__setBankAutoAdd = (enabled: boolean) => {
+            setAutoAddEnabled(enabled);
+            localStorage.setItem('bankAutoAddEnabled', String(enabled));
+        };
+        (window as any).__debugNotify = ({ packageName, title, text }: any) => {
+            processNotification(packageName, title, text);
+        };
+    }
 
     if (!context.isClient) return null;
 
+    // Sin sesión: devolvemos children directo (la página /app lo maneja con AuthModal)
+    // Agregamos SplashScreen aquí también para que se muestre en el login
     if (!context.userName) {
-        return <AuthModal onLogin={context.handleLogin} />;
+        return (
+            <>
+                {children}
+            </>
+        );
     }
 
-    // Determine active tab from pathname for Sidebar styling
     let activeTab = "dashboard";
-    if (pathname.includes("/movements")) activeTab = "movements";
-    else if (pathname.includes("/stats")) activeTab = "stats";
-    else if (pathname.includes("/profile")) activeTab = "profile";
+    if (pathname.includes("/app/movements")) activeTab = "movements";
+    else if (pathname.includes("/app/stats")) activeTab = "stats";
+    else if (pathname.includes("/app/profile")) activeTab = "profile";
 
     return (
         <div className="app-wrapper">
@@ -32,34 +116,42 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 theme={context.theme}
                 toggleTheme={context.toggleTheme}
                 activeTab={activeTab}
-                userName={context.userName!}
-                onLogout={context.handleLogout}
+                userName={context.userName}
+                onLogout={() => {
+                    context.handleLogout();
+                    router.push('/app');
+                }}
                 onAddClick={() => context.setIsAddModalOpen(true)}
+                travelModeStart={context.travelModeStart}
+                toggleTravelMode={context.toggleTravelMode}
+                pendingCount={pending.length}
+                onBellClick={() => setNotifPanelOpen(true)}
             />
 
-            <header className="mobile-header">
-                <div className="mobile-header-left">
-                    <div className="mobile-user-avatar">
-                        {context.userName?.charAt(0).toUpperCase()}
+            <header className="app-header">
+                <div className="app-header-left">
+                    <div className="app-user-avatar">
+                        {context.userName.charAt(0).toUpperCase()}
                     </div>
-                    <div className="mobile-user-info">
-                        <span className="mobile-system-status">Sistema Activo</span>
-                        <span className="mobile-welcome">Hola, {context.userName}</span>
+                    <div className="app-user-info">
+                        <span className="app-system-status">
+                            {bankSyncEnabled ? t('header.banks_active') : t('header.system_active')}
+                        </span>
+                        <span className="app-welcome">{t('header.hello')}, {context.userName}</span>
                     </div>
                 </div>
-                <div className="mobile-header-right">
-                    <div className="mobile-icon-btn">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                            <path d="M13.73 21a2 2 0 01-3.46 0" />
-                        </svg>
-                    </div>
-                    <button
-                        onClick={context.toggleTravelMode}
-                        className={`mobile-travel-btn ${context.travelModeStart ? 'active' : ''}`}
+                {/* ... app-header-right ... */}
+                <div className="app-header-right">
+                    <div
+                        className="app-icon-btn"
+                        onClick={() => setNotifPanelOpen(true)}
+                        style={{ cursor: 'pointer' }}
                     >
-                        ✈ {context.travelModeStart ? 'VIAJE ON' : 'VIAJE'}
-                    </button>
+                        <IconShapes type="bell" />
+                        {pending.length > 0 && (
+                            <span className="notif-badge">{pending.length}</span>
+                        )}
+                    </div>
                 </div>
             </header>
 
@@ -70,7 +162,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <button
                 className="brutalist-btn fab-btn"
                 onClick={() => context.setIsAddModalOpen(true)}
-                title="Agregar Transacción"
             >
                 <IconShapes type="plus" />
             </button>
@@ -80,11 +171,16 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 onClose={() => {
                     context.setIsAddModalOpen(false);
                     context.setAddModalInitialData(null);
+                    setPendingNotifId(null);
                 }}
                 onSave={async (tx) => {
                     await context.saveTransaction(tx);
+                    if (pendingNotifId) {
+                        await fetch(`/api/parse-notification?id=${pendingNotifId}`, { method: 'DELETE' });
+                        dismissPending(pendingNotifId);
+                        setPendingNotifId(null);
+                    }
                     context.setIsAddModalOpen(false);
-                    context.setAddModalInitialData(null);
                 }}
                 availableCategories={context.allCategories}
                 initialData={context.addModalInitialData}
@@ -104,6 +200,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 }}
                 globalCurrency={context.globalCurrency}
                 availableCategories={context.allCategories}
+            />
+
+            <BankNotifToast
+                pending={pending}
+                onConfirm={handleBankConfirm}
+                onDismiss={dismissPending}
+                globalCurrency={context.globalCurrency}
+                panelOpen={notifPanelOpen}
+                onClosePanel={() => setNotifPanelOpen(false)}
             />
         </div>
     );

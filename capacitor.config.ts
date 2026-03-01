@@ -5,8 +5,17 @@ const config: CapacitorConfig = {
   appName: 'CajaFuerte',
   webDir: 'public',
   server: {
-    url: 'https://zafe.vercel.app',
+    url: 'https://zafe.vercel.app/app',
     cleartext: true
+  },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 0,
+      launchAutoHide: true,
+      androidSplashResourceName: "ic_logo_animated",
+      backgroundColor: "#141714",
+      showSpinner: false
+    }
   }
 };
 

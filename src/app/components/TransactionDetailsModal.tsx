@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Transaction, Category } from "../../types";
+import { formatCurrency } from '../../lib/utils';
+import { formatDate } from './movements.utils';
 
 type TransactionDetailsModalProps = {
     transaction: Transaction | null;
@@ -76,6 +78,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
     const [viewMode, setViewMode] = useState<'details' | 'edit' | 'confirm_delete'>('details');
     const [formData, setFormData] = useState<Partial<Transaction>>({});
     const [isSaving, setIsSaving] = useState(false);
+    const [catSearch, setCatSearch] = useState<string | null>(null);
 
     const categories = availableCategories;
 
@@ -235,25 +238,52 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                             <div>
                                 <label style={editLbl}>Categoría</label>
                                 <div style={{ position: 'relative' }}>
-                                    <select
-                                        value={formData.tag || ''}
-                                        onChange={e => {
-                                            const cat = categories.find(c => c.label === e.target.value);
-                                            if (cat) setFormData({ ...formData, tag: cat.label, icon: cat.icon });
-                                            else setFormData({ ...formData, tag: e.target.value });
-                                        }}
-                                        style={{ ...editInp, appearance: 'none' as any, cursor: 'pointer', paddingRight: '2rem' }}
+                                    {/* Custom searchable dropdown - same as NewOrderModal */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setCatSearch(prev => prev === null ? '' : null)}
+                                        style={{ ...editInp, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', textAlign: 'left' as any }}
                                     >
-                                        {categories.map((cat, idx) => (
-                                            <option key={`${cat.id}-${idx}`} value={cat.label}>{cat.label}</option>
-                                        ))}
-                                        {!categories.find(c => c.label === formData.tag) && formData.tag && (
-                                            <option value={formData.tag}>{formData.tag}</option>
-                                        )}
-                                    </select>
-                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="2.5" style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                                        <polyline points="6 9 12 15 18 9" />
-                                    </svg>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {formData.tag
+                                                ? (() => { const found = categories.find(c => c.label === formData.tag); return found ? `${found.icon} ${found.label}` : formData.tag; })()
+                                                : 'Seleccionar...'}
+                                        </span>
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="2.5" style={{ flexShrink: 0, marginLeft: '0.4rem' }}>
+                                            <polyline points="6 9 12 15 18 9" />
+                                        </svg>
+                                    </button>
+
+                                    {catSearch !== null && (
+                                        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 999, background: SURFACE2, border: `1px solid ${BORDER2}`, borderRadius: '8px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar..."
+                                                value={catSearch}
+                                                onChange={e => setCatSearch(e.target.value)}
+                                                autoFocus
+                                                style={{ width: '100%', background: SURFACE, border: 'none', borderBottom: `1px solid ${BORDER}`, color: TEXT, fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600, padding: '0.55rem 0.75rem', outline: 'none', boxSizing: 'border-box' as any }}
+                                            />
+                                            <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                                                {categories
+                                                    .filter(c => c.label.toLowerCase().includes(catSearch.toLowerCase()))
+                                                    .map(c => (
+                                                        <button
+                                                            key={c.id}
+                                                            type="button"
+                                                            onClick={() => { setFormData({ ...formData, tag: c.label, icon: c.icon }); setCatSearch(null); }}
+                                                            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.55rem', padding: '0.55rem 0.75rem', background: formData.tag === c.label ? `${GREEN}22` : 'transparent', border: 'none', color: formData.tag === c.label ? GREEN : TEXT, fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', textAlign: 'left' as any, transition: 'background 0.12s' }}
+                                                            onMouseEnter={e => { if (formData.tag !== c.label) (e.currentTarget as HTMLButtonElement).style.background = SURFACE; }}
+                                                            onMouseLeave={e => { if (formData.tag !== c.label) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                                                        >
+                                                            <span style={{ fontSize: '1rem' }}>{c.icon}</span>
+                                                            <span>{c.label}</span>
+                                                        </button>
+                                                    ))
+                                                }
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div>
@@ -391,7 +421,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', alignItems: 'flex-end', flexShrink: 0 }}>
                         <span style={{ background: `${GREEN}22`, color: GREEN, border: `1px solid ${GREEN}44`, borderRadius: '20px', padding: '0.22rem 0.6rem', fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                            {transaction.tag.length > 10 ? transaction.tag.substring(0, 9) + '…' : transaction.tag}
+                            {transaction.tag}
                         </span>
                         {transaction.goalType && (
                             <span style={{ background: 'transparent', color: MUTED, border: `1px solid ${BORDER}`, borderRadius: '20px', padding: '0.18rem 0.5rem', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
@@ -406,8 +436,8 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                         <div style={{ fontSize: '0.55rem', fontWeight: 800, color: MUTED, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
                             Monto Total
                         </div>
-                        <div style={{ fontSize: '2.9rem', fontWeight: 900, color: amountColor, letterSpacing: '-0.03em', lineHeight: 1, fontFamily: 'inherit' }}>
-                            {isExpense ? '-' : '+'}{sym}{transaction.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <div style={{ fontSize: '2.5rem', fontWeight: 900, color: amountColor, letterSpacing: '-0.04em', lineHeight: 1 }}>
+                            {isExpense ? '−' : '+'}{formatCurrency(transaction.amount, sym)}
                         </div>
                     </div>
 
@@ -415,7 +445,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                         <span style={fieldLbl}>Fecha de Operación</span>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <span style={{ fontSize: '0.9rem', fontWeight: 700, color: TEXT, letterSpacing: '0.02em' }}>
-                                {transaction.date.replace(/-/g, '/')}
+                                {formatDate(transaction.date)}
                             </span>
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="2">
                                 <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
@@ -442,6 +472,12 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                         <p style={{ margin: 0, fontSize: '0.85rem', color: transaction.details ? TEXT : MUTED, lineHeight: 1.6, fontWeight: 500, whiteSpace: 'pre-wrap' }}>
                             {transaction.details || 'Sin descripción detallada registrada para este movimiento.'}
                         </p>
+                    </div>
+
+                    <div style={{ padding: '0 0.5rem', marginTop: '-0.2rem' }}>
+                        <div style={{ fontSize: '0.52rem', color: MUTED, opacity: 0.5, fontWeight: 700, letterSpacing: '0.05em' }}>
+                            ID REF: {transaction.id}
+                        </div>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.2rem' }}>

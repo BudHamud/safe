@@ -1,6 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import './ProfileTab.css';
 import { Transaction, Category } from "../../types";
+import { formatCurrency } from '../../lib/utils';
+import { useLanguage } from '../../context/LanguageContext';
+import { useAppContext } from '../../context/AppContext';
+import { BankSyncExplainer } from './BankSyncExplainer';
+import { useSubViewHistory } from '../../hooks/useSubViewHistory';
 
 type ProfileTabProps = {
     userName: string;
@@ -22,10 +27,49 @@ export const ProfileTab = ({
     monthlyGoal, onUpdate, globalCurrency, onCurrencyChange,
     availableCategories, onCategoryChangeInfo
 }: ProfileTabProps) => {
+    const { lang, setLang, t } = useLanguage();
+    const appContext = useAppContext();
+
     const [name, setName] = useState(userName);
-    const [viewMode, setViewMode] = useState<'menu' | 'categories' | 'notifications' | 'goal'>('menu');
+    const [viewMode, setViewMode] = useState<'menu' | 'categories' | 'notifications' | 'goal' | 'identity'>('menu');
+    const [isExplainerOpen, setIsExplainerOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<{ oldTag: string; newTag: string; newIcon: string } | null>(null);
+
+    // Android back button: sub-view → profile menu
+    useSubViewHistory(
+        viewMode !== 'menu',
+        useCallback(() => {
+            setViewMode('menu');
+            setEditingCategory(null);
+        }, [])
+    );
+    // ──────────────────────────────────────────────────────────────────────
     const [newGoal, setNewGoal] = useState(monthlyGoal.toString());
+    const [bankSyncEnabled, setBankSyncEnabled] = useState<boolean>(() =>
+        typeof window !== 'undefined' && localStorage.getItem('bankSyncEnabled') === 'true'
+    );
+    const [autoAddEnabled, setAutoAddEnabled] = useState<boolean>(() =>
+        typeof window !== 'undefined' && localStorage.getItem('bankAutoAddEnabled') === 'true'
+    );
+
+    const toggleBankSync = (val: boolean) => {
+        if (val) {
+            setIsExplainerOpen(true);
+        } else {
+            setBankSyncEnabled(false);
+            (window as any).__setBankSync?.(false);
+        }
+    };
+
+    const confirmBankSyncAction = () => {
+        setBankSyncEnabled(true);
+        (window as any).__setBankSync?.(true);
+        setIsExplainerOpen(false);
+    };
+    const toggleAutoAdd = (val: boolean) => {
+        setAutoAddEnabled(val);
+        (window as any).__setBankAutoAdd?.(val);
+    };
 
     const sym = globalCurrency === 'ILS' ? '₪' : (globalCurrency === 'EUR' ? '€' : '$');
 
@@ -130,6 +174,11 @@ export const ProfileTab = ({
     // ── Render ────────────────────────────────────────────────
     return (
         <div className="profile-root">
+            <BankSyncExplainer
+                isOpen={isExplainerOpen}
+                onClose={() => setIsExplainerOpen(false)}
+                onConfirm={confirmBankSyncAction}
+            />
 
             {/* Top bar */}
             <div className="profile-topbar">
@@ -150,54 +199,48 @@ export const ProfileTab = ({
                     <div className="profile-grid">
 
                         {/* Identity card */}
-                        <div className="profile-card profile-card--identity">
+                        <div className="profile-card profile-card--identity" onClick={() => setViewMode('identity')} style={{ cursor: 'pointer' }}>
                             <div className="profile-card-label">
-                                <span>Identidad Premium</span>
-                                <span className="profile-card-label-badge">Activo</span>
+                                <span>{t('profile.card_identity')}</span>
+                                <span className="profile-card-label-badge">{t('profile.card_identity_badge')}</span>
                             </div>
-                            <div className="profile-avatar-row">
-                                <div className="profile-avatar-initials">{initials}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.2rem' }}>
+                                <div className="profile-avatar-row" style={{ width: '32px', height: '32px' }}>
+                                    <div className="profile-avatar-initials" style={{ width: '100%', height: '100%', fontSize: '0.7rem' }}>{initials}</div>
+                                </div>
+                                <div className="profile-name-display" style={{ fontSize: '1.2rem', margin: 0 }}>{name}</div>
                             </div>
-                            <input
-                                className="profile-name-input"
-                                value={name}
-                                onChange={e => setName(e.target.value)}
-                                onBlur={() => localStorage.setItem("financeUserName", name)}
-                            />
-                            <div className="profile-devices-row">
-                                {[0, 1, 2].map(i => (
-                                    <div className="profile-device-dot" key={i}>
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <rect x="5" y="2" width="14" height="20" rx="2" /><circle cx="12" cy="17" r="1" />
-                                        </svg>
-                                    </div>
-                                ))}
-                                <span className="profile-devices-label">3 Dispositivos vinculados</span>
+                            <div className="profile-devices-row" style={{ marginTop: '0.4rem' }}>
+                                <div className="profile-device-dot active" style={{ width: '22px', height: '22px' }}>
+                                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <rect x="5" y="2" width="14" height="20" rx="2" /><circle cx="12" cy="17" r="1" />
+                                    </svg>
+                                </div>
+                                <span className="profile-devices-label">{t('profile.card_manage_devices')}</span>
                             </div>
                         </div>
 
                         {/* Goal card */}
                         <div className="profile-card profile-card--goal" onClick={() => setViewMode('goal')} style={{ cursor: 'pointer' }}>
                             <div className="profile-card-label">
-                                <span>Meta de Gastos</span>
-                                <span className="profile-goal-consumed">{goalPct}% consumido</span>
+                                <span>{t('profile.card_expense_goal')}</span>
+                                <span className="profile-goal-consumed">{goalPct}{t('profile.goal_consumed')}</span>
                             </div>
                             <div className="profile-goal-amount">
-                                <span>{sym}</span>
-                                {currentMonthExpense.toLocaleString('en-US', { minimumFractionDigits: 0 })}
-                                <span className="profile-goal-limit">/ {sym}{monthlyGoal.toLocaleString()}</span>
+                                {formatCurrency(currentMonthExpense, sym)}
+                                <span className="profile-goal-limit">/ {formatCurrency(monthlyGoal, sym)}</span>
                             </div>
                             <div className="profile-goal-days">
                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                                 </svg>
-                                Faltan {daysLeft} días para el cierre
+                                {t('profile.days_left_pre')} {daysLeft} {t('profile.days_left_suf')}
                             </div>
                         </div>
 
                         {/* Currency card */}
                         <div className="profile-card">
-                            <div className="profile-card-label">Divisa</div>
+                            <div className="profile-card-label">{t('profile.card_currency')}</div>
                             <svg className="profile-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
                             </svg>
@@ -211,23 +254,81 @@ export const ProfileTab = ({
                                 <option value="EUR">EUR (Euros)</option>
                                 <option value="ARS">ARS (Pesos)</option>
                             </select>
-                            <span className="profile-card-sub">↺ Símbolo moneda</span>
+                            <span className="profile-card-sub">{t('profile.currency_sub')}</span>
                         </div>
 
                         {/* Theme card */}
                         <div className="profile-card" onClick={toggleTheme} style={{ cursor: 'pointer' }}>
-                            <div className="profile-card-label">Tema</div>
+                            <div className="profile-card-label">{t('profile.theme')}</div>
                             <button
                                 className={`profile-toggle ${theme === 'dark' ? 'profile-toggle--on' : 'profile-toggle--off'}`}
                                 onClick={e => { e.stopPropagation(); toggleTheme(); }}
                             >
                                 <span className="profile-toggle-thumb" />
                             </button>
-                            <div className="profile-card-value">{theme === 'dark' ? 'Activado' : 'Desactivado'}</div>
+                            <div className="profile-card-value">{theme === 'dark' ? t('profile.theme_on') : t('profile.theme_off')}</div>
                             <span className="profile-card-sub">Organic Dark</span>
                         </div>
 
-                    </div>
+                        {/* Language card */}
+                        <div className="profile-card">
+                            <div className="profile-card-label">{t('profile.language')}</div>
+                            <svg className="profile-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+                            </svg>
+                            <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.3rem', paddingBottom: '14px' }}>
+                                <button
+                                    onClick={() => setLang('es')}
+                                    style={{
+                                        flex: 1, padding: '0.4rem',
+                                        borderRadius: '8px', border: 'none',
+                                        fontWeight: 900, fontSize: '0.72rem',
+                                        cursor: 'pointer',
+                                        background: lang === 'es' ? 'var(--primary)' : 'var(--surface-alt)',
+                                        color: lang === 'es' ? 'var(--primary-text)' : 'var(--text-muted)',
+                                        transition: 'all 0.2s',
+                                    }}
+                                >🇦🇷 ES</button>
+                                {/* TODO: completar traducciones EN — actualmente ~60% de la UI usa t() */}
+                                <div style={{ flex: 1, position: 'relative' }}>
+                                    <button
+                                        onClick={() => setLang('en')}
+                                        style={{
+                                            width: '100%', padding: '0.4rem',
+                                            borderRadius: '8px', border: 'none',
+                                            fontWeight: 900, fontSize: '0.72rem',
+                                            cursor: 'pointer',
+                                            background: lang === 'en' ? 'var(--primary)' : 'var(--surface-alt)',
+                                            color: lang === 'en' ? 'var(--primary-text)' : 'var(--text-muted)',
+                                            transition: 'all 0.2s',
+                                        }}
+                                    >🇬🇧 EN</button>
+                                    <span style={{ position: 'absolute', bottom: '-13px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.45rem', fontWeight: 800, color: '#a08030', letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Parcial</span>
+                                </div>
+                            </div>
+                            <span className="profile-card-sub">{lang === 'es' ? 'Español' : 'English'}</span>
+                        </div>
+
+                        {/* Travel Mode card */}
+                        <div
+                            className="profile-card"
+                            onClick={appContext.toggleTravelMode}
+                            style={{ cursor: 'pointer' }}
+                        >
+                            <div className="profile-card-label">{t('profile.travel_mode')}</div>
+                            <button
+                                className={`profile-toggle ${appContext.travelModeStart ? 'profile-toggle--on' : 'profile-toggle--off'}`}
+                                onClick={e => { e.stopPropagation(); appContext.toggleTravelMode(); }}
+                            >
+                                <span className="profile-toggle-thumb" />
+                            </button>
+                            <div className="profile-card-value">
+                                {appContext.travelModeStart ? t('travel.active') : t('travel.inactive')}
+                            </div>
+                            <span className="profile-card-sub">✈️ {t('profile.travel_mode_desc')}</span>
+                        </div>
+
+                    </div>{/* end profile-grid */}
 
                     {/* Banking integration row */}
                     <div className="profile-row-item" onClick={() => setViewMode('notifications')}>
@@ -237,8 +338,8 @@ export const ProfileTab = ({
                             </svg>
                         </div>
                         <div className="profile-row-content">
-                            <div className="profile-row-sublabel">Integración Bancaria</div>
-                            <div className="profile-row-value">Vinculado</div>
+                            <div className="profile-row-sublabel">{t('profile.bank_integration')}</div>
+                            <div className="profile-row-value">{t('profile.bank_linked')}</div>
                         </div>
                         <div className="profile-row-arrow">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -277,7 +378,7 @@ export const ProfileTab = ({
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                             <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
                         </svg>
-                        Cerrar Sesión
+                        {t('profile.logout')}
                     </button>
                 </>
             )}
@@ -285,7 +386,7 @@ export const ProfileTab = ({
             {/* ── CATEGORIES VIEW ── */}
             {viewMode === 'categories' && (
                 <div>
-                    <div className="profile-subview-label">Gestión de tus etiquetas</div>
+                    <div className="profile-subview-label">{t('profile.categories_title')}</div>
 
                     {!editingCategory ? (
                         <div className="profile-cat-list">
@@ -295,7 +396,7 @@ export const ProfileTab = ({
                                         <div className="profile-cat-icon-box">{cat.icon || '🏷️'}</div>
                                         <div>
                                             <div className="profile-cat-name">{cat.tag}</div>
-                                            <div className="profile-cat-count">{cat.count} movimientos</div>
+                                            <div className="profile-cat-count">{cat.count} {t('profile.cat_tx_count')}</div>
                                         </div>
                                     </div>
                                     <div className="profile-cat-actions">
@@ -313,7 +414,7 @@ export const ProfileTab = ({
                     ) : (
                         <div className="profile-cat-edit-form">
                             <div>
-                                <span className="profile-edit-field-label">Nuevo Emoji</span>
+                                <span className="profile-edit-field-label">{t('profile.cat_new_emoji')}</span>
                                 <input
                                     className="profile-edit-emoji-input"
                                     value={editingCategory.newIcon}
@@ -322,7 +423,7 @@ export const ProfileTab = ({
                                 />
                             </div>
                             <div>
-                                <span className="profile-edit-field-label">Nuevo Nombre</span>
+                                <span className="profile-edit-field-label">{t('profile.cat_new_name')}</span>
                                 <input
                                     className="profile-edit-text-input"
                                     value={editingCategory.newTag}
@@ -331,7 +432,7 @@ export const ProfileTab = ({
                             </div>
                             <div className="profile-edit-actions">
                                 <button className="profile-edit-cancel" onClick={() => setEditingCategory(null)}>Cancelar</button>
-                                <button className="profile-edit-save" onClick={saveCategoryEdit}>Aplicar a todos</button>
+                                <button className="profile-edit-save" onClick={saveCategoryEdit}>{t('profile.apply_all')}</button>
                             </div>
                         </div>
                     )}
@@ -341,41 +442,150 @@ export const ProfileTab = ({
             {/* ── NOTIFICATIONS VIEW ── */}
             {viewMode === 'notifications' && (
                 <div>
-                    <div className="profile-subview-label">Auto-Sincronización</div>
+                    <div className="profile-subview-label">{t('profile.autosync_title')}</div>
 
                     <div className="profile-notif-card">
                         <p className="profile-notif-desc">
                             Permite leer las notificaciones bancarias entrantes (Mercado Pago, Ualá, Google Wallet, Brubank, etc.) para registrar gastos automáticamente.
                         </p>
                         <div className="profile-notif-toggle-row">
-                            <span className="profile-notif-toggle-label">Escuchar Bancos y Billeteras</span>
+                            <span className="profile-notif-toggle-label">{t('profile.notif_banks')}</span>
                             <button
-                                className={`profile-toggle ${theme === 'dark' ? 'profile-toggle--on' : 'profile-toggle--off'}`}
-                                onClick={toggleTheme}
+                                className={`profile-toggle ${bankSyncEnabled ? 'profile-toggle--on' : 'profile-toggle--off'}`}
+                                onClick={() => toggleBankSync(!bankSyncEnabled)}
                             >
                                 <span className="profile-toggle-thumb" />
                             </button>
                         </div>
-                        <div className="profile-notif-toggle-row" style={{ opacity: 0.5 }}>
-                            <span className="profile-notif-toggle-label">Añadir automático sin preguntar</span>
-                            <div className="profile-toggle profile-toggle--off">
+                        <div className="profile-notif-toggle-row" style={{ opacity: bankSyncEnabled ? 1 : 0.4, transition: 'opacity 0.2s' }}>
+                            <span className="profile-notif-toggle-label">{t('profile.notif_auto_save')}</span>
+                            <button
+                                className={`profile-toggle ${autoAddEnabled ? 'profile-toggle--on' : 'profile-toggle--off'}`}
+                                onClick={() => { if (bankSyncEnabled) toggleAutoAdd(!autoAddEnabled); }}
+                                disabled={!bankSyncEnabled}
+                            >
                                 <span className="profile-toggle-thumb" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="profile-notif-beta">{t('profile.notif_beta')}</div>
+
+                    <button
+                        style={{
+                            marginTop: '1rem', padding: '0.6rem', width: '100%',
+                            background: 'transparent', border: '1px solid #333',
+                            borderRadius: '8px', color: '#555', fontSize: '0.6rem',
+                            cursor: 'pointer', fontWeight: 800, textTransform: 'uppercase'
+                        }}
+                        onClick={() => {
+                            // Simula una notificación enviando los datos al window
+                            if (!(window as any).__debugNotify) {
+                                alert("Recargá la página para activar el debug");
+                                return;
+                            }
+                            (window as any).__debugNotify({
+                                packageName: 'com.mercadopago.wallet.android',
+                                title: 'Mercado Pago',
+                                text: 'Pagaste $1.450,50 en Starbucks'
+                            });
+                        }}
+                    >
+                        🧪 Simular Notificación (Debug)
+                    </button>
+                </div>
+            )}
+
+            {/* ── IDENTITY VIEW ── */}
+            {viewMode === 'identity' && (
+                <div className="profile-identity-subview">
+                    <div className="profile-subview-label">{t('profile.user_profile')}</div>
+
+                    <div className="profile-identity-edit-section">
+                        <div className="profile-avatar-large">{initials}</div>
+                        {/* TODO: implementar subida de foto — deshabilitado hasta S3/Cloudinary */}
+                        <button
+                            className="profile-photo-btn"
+                            disabled
+                            title="Próximamente"
+                            style={{ opacity: 0.35, cursor: 'not-allowed' }}
+                        >
+                            {t('profile.change_photo')}
+                        </button>
+
+                        <div className="profile-form-group">
+                            <label>{t('profile.username_label')}</label>
+                            <input
+                                className="profile-text-input"
+                                value={name}
+                                onChange={e => { setName(e.target.value); localStorage.setItem("financeUserName", e.target.value); }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* TODO: OAuth (Google, GitHub) — pendiente de implementación */}
+                    <div style={{ position: 'relative' }}>
+                        <div className="profile-subview-label" style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {t('profile.social_links')}
+                            <span style={{ fontSize: '0.5rem', fontWeight: 900, background: '#2a2a1a', color: '#a08030', border: '1px solid #a08030', borderRadius: '4px', padding: '0.15rem 0.4rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Próximamente</span>
+                        </div>
+                        <div className="profile-social-list" style={{ opacity: 0.35, pointerEvents: 'none', userSelect: 'none' }}>
+                            <div className="profile-social-item">
+                                <div className="profile-social-info">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                        <circle cx="12" cy="12" r="10" /><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4c2.21 0 4-1.79 4-4s-1.79-4-4-4zm4.83 2c-.17-.67-.5-1.28-.96-1.77L15 9.06c.31.33.53.74.64 1.18h1.19zM8.17 14c.17.67.5 1.28.96 1.77L10 14.94c-.31-.33-.53-.74-.64-1.18H8.17z" />
+                                    </svg>
+                                    <span>Google Account</span>
+                                </div>
+                                <button className="profile-social-btn active" disabled>Desvincular</button>
+                            </div>
+                            <div className="profile-social-item">
+                                <div className="profile-social-info">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                        <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+                                    </svg>
+                                    <span>GitHub Repository</span>
+                                </div>
+                                <button className="profile-social-btn" disabled>Vincular</button>
                             </div>
                         </div>
                     </div>
 
-                    <div className="profile-notif-beta">Módulo en desarrollo (Beta API)</div>
+                    {/* TODO: session management — pendiente de backend (tabla sessions/devices) */}
+                    <div style={{ position: 'relative' }}>
+                        <div className="profile-subview-label" style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {t('profile.linked_devices')}
+                            <span style={{ fontSize: '0.5rem', fontWeight: 900, background: '#2a2a1a', color: '#a08030', border: '1px solid #a08030', borderRadius: '4px', padding: '0.15rem 0.4rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Próximamente</span>
+                        </div>
+                        <div className="profile-device-list" style={{ opacity: 0.35, pointerEvents: 'none', userSelect: 'none' }}>
+                            <div className="profile-device-item">
+                                <div className="profile-device-icon-wrap">📱</div>
+                                <div className="profile-device-details">
+                                    <div className="profile-device-name">Samsung Galaxy S24 Ultra (Este)</div>
+                                    <div className="profile-device-meta">Sesión iniciada hoy • Buenos Aires, ARG</div>
+                                </div>
+                                <div className="profile-device-status">Online</div>
+                            </div>
+                            <div className="profile-device-item">
+                                <div className="profile-device-icon-wrap">💻</div>
+                                <div className="profile-device-details">
+                                    <div className="profile-device-name">MacBook Pro 14" M3</div>
+                                    <div className="profile-device-meta">Última actividad hace 2 horas • Buenos Aires, ARG</div>
+                                </div>
+                                <button className="profile-device-logout" disabled>Cerrar</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
-
             {/* ── GOAL VIEW ── */}
             {viewMode === 'goal' && (
                 <div>
-                    <div className="profile-subview-label">Configurar Meta Mensual</div>
+                    <div className="profile-subview-label">{t('profile.configure_goal')}</div>
 
                     <div className="profile-goal-form">
                         <div>
-                            <span className="profile-edit-field-label">Monto máximo de gasto ({sym})</span>
+                            <span className="profile-edit-field-label">{t('profile.goal_max_amount')} ({sym})</span>
                             <div className="profile-goal-input-wrap">
                                 <span className="profile-goal-sym">{sym}</span>
                                 <input
@@ -387,11 +597,11 @@ export const ProfileTab = ({
                             </div>
                         </div>
                         <p className="profile-goal-hint">
-                            Esta meta se utilizará para calcular tus indicadores de salud financiera y alertas de consumo en las gráficas de métricas.
+                            {t('profile.goal_hint')}
                         </p>
                         <div className="profile-goal-actions">
-                            <button className="profile-goal-cancel" onClick={() => setViewMode('menu')}>Cancelar</button>
-                            <button className="profile-goal-save" onClick={saveGoal}>Guardar Meta</button>
+                            <button className="profile-goal-cancel" onClick={() => setViewMode('menu')}>{t('btn.cancel')}</button>
+                            <button className="profile-goal-save" onClick={saveGoal}>{t('profile.goal_save_btn')}</button>
                         </div>
                     </div>
                 </div>

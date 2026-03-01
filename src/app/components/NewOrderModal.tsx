@@ -13,7 +13,7 @@ type NewOrderModalProps = {
 };
 
 export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, initialData, globalCurrency }: NewOrderModalProps) => {
-    const { setCatSignal } = useAppContext();
+    const { setCatSignal, userId } = useAppContext();
     const [transactionType, setTransactionType] = useState('expense');
     const [goalType, setGoalType] = useState<'unico' | 'mensual' | 'periodo' | 'meta'>('unico');
     const [formData, setFormData] = useState({
@@ -79,19 +79,78 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
     const [analyzingImage, setAnalyzingImage] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [catSearch, setCatSearch] = useState<string | null>(null);
+    const [ticketPreview, setTicketPreview] = useState<string | null>(null);
+    const [scanResult, setScanResult] = useState<{ confidence: number; desc: string; remaining: number | null } | null>(null);
+    const [dragActive, setDragActive] = useState(false);
+    const [scanLimitReached, setScanLimitReached] = useState(false);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            setAnalyzingImage(true);
-            setTimeout(() => {
-                setFormData(prev => ({ ...prev, amount: '85.50', desc: 'Ticket de supermercado', tag: 'alimentacion' }));
-                setAnalyzingImage(false);
-            }, 1500);
+    const processImageFile = async (file: File) => {
+        if (!file.type.startsWith('image/')) return;
+        setAnalyzingImage(true);
+        setScanResult(null);
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = (ev) => setTicketPreview(ev.target?.result as string);
+        reader.readAsDataURL(file);
+
+        // Convert to base64 for API
+        const toBase64 = (f: File): Promise<string> => new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res((r.result as string).split(',')[1]);
+            r.onerror = rej;
+            r.readAsDataURL(f);
+        });
+
+        try {
+            const base64 = await toBase64(file);
+            const resp = await fetch('/api/scan-ticket', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageBase64: base64, mimeType: file.type, userId })
+            });
+            const data = await resp.json();
+
+            if (data.isLimited) {
+                setScanLimitReached(true);
+                setTicketPreview(null);
+                alert(`${data.error}`);
+            } else if (data.error) {
+                alert(`No se pudo leer el ticket: ${data.error}`);
+            } else {
+                setFormData(prev => ({
+                    ...prev,
+                    amount: data.amount?.toString() ?? prev.amount,
+                    currency: data.currency ?? prev.currency,
+                    desc: data.desc ?? prev.desc,
+                    tag: data.tag ?? prev.tag,
+                    date: data.date ?? prev.date,
+                    details: data.details ?? prev.details,
+                }));
+                setScanResult({ confidence: data.confidence, desc: data.desc, remaining: data.remaining });
+                setScanLimitReached(false);
+            }
+        } catch (err) {
+            console.error('scan-ticket error', err);
+            alert('Error al escanear el ticket. Intenta de nuevo.');
+        } finally {
+            setAnalyzingImage(false);
         }
+    };
+
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files?.[0]) processImageFile(e.target.files[0]);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setDragActive(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) processImageFile(file);
     };
 
     const handleSubmit = async () => {
@@ -154,7 +213,6 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
             }
             finalTagLabel = selectedCat.label;
             finalIcon = selectedCat.icon;
-            if (transactionType === 'income') { finalIcon = '💼'; finalTagLabel = 'Ingreso de Capital'; }
         }
 
         const newTx: Transaction = {
@@ -164,7 +222,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
             amountUSD, amountARS, amountILS, amountEUR,
             tag: finalTagLabel,
             type: transactionType,
-            date: formData.date === new Date().toISOString().split('T')[0] ? "Hoy" : formData.date,
+            date: formData.date,
             icon: finalIcon,
             details: additionalDetails,
             excludeFromBudget: goalType === 'meta' ? false : formData.excludeFromBudget,
@@ -255,16 +313,112 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                         </div>
                     )}
 
+                    {/* Ticket Scanner ─ drag & drop zone */}
+                    {scanLimitReached ? (
+                        <div style={{
+                            marginBottom: '1rem', padding: '0.85rem 1rem', borderRadius: '8px',
+                            border: '1.5px dashed #3a2020', background: '#1a1214',
+                            display: 'flex', alignItems: 'center', gap: '0.65rem'
+                        }}>
+                            <span style={{ fontSize: '1rem' }}>🚫</span>
+                            <div>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#8e4a39', letterSpacing: '0.05em' }}>LÍMITE DIARIO ALCANZADO</div>
+                                <div style={{ fontSize: '0.58rem', color: '#6b4040', marginTop: '0.1rem' }}>Vuelve mañana o contacta al administrador</div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div
+                            style={{ marginBottom: '1rem' }}
+                            onDragEnter={e => { e.preventDefault(); setDragActive(true); }}
+                            onDragOver={e => { e.preventDefault(); setDragActive(true); }}
+                            onDragLeave={() => setDragActive(false)}
+                            onDrop={handleDrop}
+                        >
+                            <input type="file" accept="image/*" capture="environment" onChange={handleImageUpload} id="ticket-upload" style={{ display: 'none' }} />
+                            <label
+                                htmlFor="ticket-upload"
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: ticketPreview ? 'row' : 'column',
+                                    alignItems: 'center',
+                                    justifyContent: ticketPreview ? 'flex-start' : 'center',
+                                    gap: '0.75rem',
+                                    width: '100%',
+                                    padding: ticketPreview ? '0.6rem 0.85rem' : '1rem',
+                                    borderRadius: '8px',
+                                    border: `1.5px dashed ${dragActive ? '#5d7253' : analyzingImage ? '#5d7253' : '#2b2e2b'}`,
+                                    background: dragActive ? '#1d2a1d' : analyzingImage ? '#1a201a' : '#131713',
+                                    cursor: analyzingImage ? 'default' : 'pointer',
+                                    transition: 'all 0.2s',
+                                    minHeight: ticketPreview ? 'auto' : '70px',
+                                }}
+                            >
+                                {analyzingImage ? (
+                                    <>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d7253" strokeWidth="2" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }}>
+                                            <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="10" />
+                                        </svg>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+                                            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#5d7253', letterSpacing: '0.06em' }}>ANALIZANDO TICKET...</span>
+                                            <span style={{ fontSize: '0.6rem', color: '#586356' }}>IA está leyendo el comprobante</span>
+                                        </div>
+                                    </>
+                                ) : ticketPreview ? (
+                                    <>
+                                        {/* Thumbnail */}
+                                        <img src={ticketPreview} alt="ticket" style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '5px', flexShrink: 0, border: '1px solid #2b2e2b' }} />
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            {scanResult ? (
+                                                <>
+                                                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#5d7253', letterSpacing: '0.05em' }}>✓ TICKET ESCANEADO</div>
+                                                    <div style={{ fontSize: '0.62rem', color: '#8c8c80', marginTop: '0.1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {scanResult.desc} · {scanResult.confidence}% confianza
+                                                    </div>
+                                                    {/* Confidence bar */}
+                                                    <div style={{ marginTop: '0.3rem', height: '3px', borderRadius: '2px', background: '#2b2e2b', overflow: 'hidden' }}>
+                                                        <div style={{ width: `${scanResult.confidence}%`, height: '100%', background: scanResult.confidence > 75 ? '#5d7253' : scanResult.confidence > 50 ? '#a16207' : '#8e4a39', transition: 'width 0.5s ease', borderRadius: '2px' }} />
+                                                    </div>
+                                                    {scanResult.remaining !== null && (
+                                                        <div style={{ fontSize: '0.55rem', color: '#586356', marginTop: '0.2rem' }}>
+                                                            {scanResult.remaining} escaneos restantes hoy
+                                                        </div>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <span style={{ fontSize: '0.68rem', color: '#737670' }}>Cambiar imagen...</span>
+                                            )}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={e => { e.preventDefault(); setTicketPreview(null); setScanResult(null); }}
+                                            style={{ background: 'none', border: 'none', color: '#586356', fontSize: '0.75rem', cursor: 'pointer', padding: '0.2rem', flexShrink: 0 }}
+                                        >
+                                            ✕
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#737670" strokeWidth="1.5">
+                                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                                            <polyline points="3 9 9 9 9 3" />
+                                            <polyline points="21 9 15 9 15 3" />
+                                            <polyline points="21 15 15 15 15 21" />
+                                            <polyline points="3 15 9 15 9 21" />
+                                        </svg>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem' }}>
+                                            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#737670', letterSpacing: '0.06em' }}>ESCANEAR TICKET / FACTURA</span>
+                                            <span style={{ fontSize: '0.58rem', color: '#4a4d4a' }}>Arrastra una imagen o haz clic · IA extrae los datos</span>
+                                        </div>
+                                    </>
+                                )}
+                            </label>
+                        </div>
+                    )}
+
                     {/* Volumen Operativo */}
                     <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
                             <span className="order-modal-label">Volumen Operativo *</span>
-                            <div>
-                                <input type="file" accept="image/*" onChange={handleImageUpload} id="ticket-upload" style={{ display: 'none' }} />
-                                <label htmlFor="ticket-upload" className="order-modal-ticket-btn">
-                                    {analyzingImage ? "Analizando..." : "Ticket / Factura"}
-                                </label>
-                            </div>
                         </div>
                         <div className="order-modal-amount-group">
                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>

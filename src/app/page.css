@@ -96,9 +96,21 @@
     color: #e0e0ce;
 }
 
-.nav-item.active {
-    background-color: #5d7253;
-    color: #ffffff;
+@media (min-width: 769px) {
+    .nav-item.active {
+        background-color: var(--primary);
+        color: white;
+        border-radius: 8px;
+        margin: 0 0.75rem;
+        padding-left: 1rem;
+        width: calc(100% - 1.5rem);
+        box-shadow: none;
+    }
+
+    .nav-item.active .icon-svg {
+        stroke: white;
+        opacity: 1;
+    }
 }
 
 .nav-item .icon-svg {
@@ -108,9 +120,7 @@
     opacity: 0.8;
 }
 
-.nav-item.active .icon-svg {
-    opacity: 1;
-}
+/* removed duplicate .nav-item.active .icon-svg block */
 
 /* User Profile Block */
 .user-profile-sidebar {
@@ -393,7 +403,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--surface-alt);
+    background: var(--icon-bg, var(--surface-alt));
 }
 
 .icon-svg {
@@ -654,7 +664,7 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* DESKTOP EXCLUSIONS */
 .app-add-btn,
-.mobile-header {
+.app-header {
     display: none;
 }
 
@@ -668,7 +678,273 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
     border-radius: 50%;
 }
 
+/* ── Travel Mode UI overrides — Blue presence everywhere ── */
+
+/* All cards: deep ocean surface + visible top border */
+html[data-theme][data-travel="true"] .geometric-card,
+html[data-theme][data-travel="true"] .tx-list,
+html[data-theme][data-travel="true"] .transaction-panel {
+    background: var(--surface);
+    border-color: var(--border);
+    border-top: 2px solid rgba(6, 182, 212, 0.6);
+    box-shadow: 0 4px 24px rgba(0, 5, 25, 0.5);
+}
+
+/* Sidebar nav: blue tinted background for all items */
+html[data-theme][data-travel="true"] .sidebar {
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+}
+
+html[data-theme][data-travel="true"] .nav-item {
+    color: #2d5374;
+    position: relative;
+}
+
+html[data-theme][data-travel="true"] .nav-item:hover {
+    color: var(--text-main);
+    background: rgba(6, 182, 212, 0.06);
+    border-radius: 8px;
+    margin: 0 0.5rem;
+    padding-left: 1rem;
+    width: calc(100% - 1rem);
+}
+
+/* Active nav: fully-rounded cyan pill — matches screenshot */
+html[data-theme][data-travel="true"] .nav-item.active {
+    background: rgba(6, 182, 212, 0.15);
+    color: var(--primary);
+    border-left: none;
+    border-radius: 8px;
+    margin: 0 0.5rem;
+    padding-left: 1rem;
+    width: calc(100% - 1rem);
+    box-shadow: inset 0 0 0 1px rgba(6, 182, 212, 0.3);
+}
+
+html[data-theme][data-travel="true"] .nav-item.active svg {
+    stroke: var(--primary);
+}
+
+/* Brand area */
+html[data-theme][data-travel="true"] .brand {
+    border-bottom-color: var(--border);
+}
+
+html[data-theme][data-travel="true"] .brand-name {
+    color: var(--text-main);
+}
+
+/* Sidebar footer buttons */
+html[data-theme][data-travel="true"] .sidebar-footer {
+    border-top-color: var(--border);
+}
+
+html[data-theme][data-travel="true"] .sidebar-util-btn {
+    background: rgba(6, 182, 212, 0.08);
+    border-color: var(--border);
+    color: #2d5374;
+}
+
+html[data-theme][data-travel="true"] .sidebar-util-btn:hover {
+    background: rgba(6, 182, 212, 0.16);
+    color: var(--primary);
+    border-color: var(--primary);
+}
+
+html[data-theme][data-travel="true"] .sidebar-util-btn.active {
+    background: rgba(6, 182, 212, 0.2);
+    color: var(--primary);
+    border-color: var(--primary);
+}
+
+/* Section titles */
+html[data-theme][data-travel="true"] .section-title {
+    border-bottom-color: var(--border);
+}
+
+/* Mobile bottom nav: blue background */
 @media (max-width: 768px) {
+    html[data-theme][data-travel="true"] .sidebar {
+        background: #050a14;
+        border-top: 1px solid var(--border);
+    }
+
+    html[data-theme][data-travel="true"] .nav-item.active {
+        color: var(--primary);
+        background: transparent;
+        border-left: none;
+        padding-left: 0;
+    }
+
+    html[data-theme][data-travel="true"] .nav-item.active::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 28px;
+        height: 3px;
+        background: var(--primary);
+        border-radius: 2px 2px 0 0;
+    }
+
+    html[data-theme][data-travel="true"] .app-header {
+        background: #050a14;
+        border-bottom-color: var(--border);
+    }
+}
+
+/* APP HEADER (Universal) */
+.sidebar-footer {
+    padding: 1.2rem 1.5rem;
+    border-top: 1px solid #1a1a1a;
+    display: flex;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    margin-top: auto;
+}
+
+.sidebar-util-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: #8c8c80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.sidebar-util-btn:hover {
+    border-color: #555;
+    color: #fff;
+}
+
+.sidebar-util-btn.active {
+    color: #fff;
+    border-color: #5d7253;
+}
+
+.sidebar-util-btn.travel-bt.active {
+    color: #fff;
+    background: #1a1a1a;
+    border-color: #5d7253;
+}
+
+
+/* APP HEADER (Universal Base - Hidden by default on Desktop) */
+.app-header {
+    display: none;
+    justify-content: space-between;
+    align-items: center;
+    background: #141714;
+    border-bottom: 1px solid #1a1a1a;
+    padding: 0.75rem 1rem;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 60;
+    height: 65px;
+    backdrop-filter: blur(10px);
+}
+
+.app-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.app-user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-text);
+    font-size: 0.85rem;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.app-user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.app-system-status {
+    font-size: 0.55rem;
+    font-weight: 800;
+    color: var(--primary);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1;
+}
+
+.app-welcome {
+    font-size: 0.8rem;
+    font-weight: 900;
+    color: #e0e0ce;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+.app-header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.app-icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #8c8c80;
+    position: relative;
+}
+
+.notif-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: #e53e3e;
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    border: 2px solid #0d0d0d;
+    pointer-events: none;
+}
+
+@media (max-width: 768px) {
+    .app-header {
+        display: flex;
+        /* Show only on mobile */
+        padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1rem 0.75rem 1rem;
+        height: auto;
+        min-height: calc(65px + env(safe-area-inset-top, 0px));
+        border-bottom: none;
+    }
+
     .app-wrapper {
         flex-direction: column;
     }
@@ -678,100 +954,36 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
         padding: calc(65px + 1.25rem + env(safe-area-inset-top, 0px)) 0.85rem calc(80px + env(safe-area-inset-bottom, 0px)) 0.85rem;
     }
 
-    .mobile-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: #141714;
-        border-bottom: none;
-        padding: calc(1rem + env(safe-area-inset-top, 0px)) 1rem 0.5rem 1rem;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 60;
-        height: auto;
-        min-height: calc(60px + env(safe-area-inset-top, 0px));
-        backdrop-filter: blur(10px);
+    .app-icon-btn {
+        width: 42px;
+        height: 42px;
     }
 
-    .mobile-header-left {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
-
-    .mobile-user-avatar {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background: #5d7253;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #fff;
-        font-size: 0.85rem;
-        font-weight: 800;
-        flex-shrink: 0;
-    }
-
-    .mobile-user-info {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .mobile-system-status {
-        font-size: 0.55rem;
-        font-weight: 800;
-        color: #5d7253;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        line-height: 1;
-    }
-
-    .mobile-welcome {
-        font-size: 0.8rem;
-        font-weight: 900;
-        color: #e0e0ce;
-        text-transform: uppercase;
-        margin-top: 2px;
-    }
-
-    .mobile-header-right {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-    }
-
-    .mobile-icon-btn {
-        width: 30px;
-        height: 30px;
+    .mobile-travel-btn-round {
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         background: #1a1a1a;
-        border: 1px solid #333;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         color: #8c8c80;
-    }
-
-    .mobile-travel-btn {
-        background: #1a1a1a;
-        color: #e0e0ce;
         border: 1px solid #333;
-        border-radius: 6px;
-        padding: 0.35rem 0.65rem;
-        font-size: 0.65rem;
-        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
-        font-family: inherit;
-        white-space: nowrap;
-        transition: all 0.2s;
+        transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        padding: 0;
     }
 
-    .mobile-travel-btn.active {
-        background: #8e4a39;
-        border-color: #8e4a39;
+    .mobile-travel-btn-round.active {
+        background: #1a1a1a;
+        border-color: #444;
+        color: #ffffff;
+        transform: scale(1.05);
+    }
+
+    .mobile-travel-btn-round .icon-svg {
+        width: 17px;
+        height: 17px;
     }
 
     .sidebar {
@@ -873,11 +1085,12 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
         margin: 0;
         padding: 0;
         background: transparent;
-        /* Reset desktop background */
+        box-shadow: none;
     }
 
-    .nav-item.active svg {
+    .nav-item.active .icon-svg {
         stroke: var(--primary);
+        opacity: 1;
     }
 
 

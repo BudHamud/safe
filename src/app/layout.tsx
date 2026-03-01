@@ -1,14 +1,17 @@
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "../context/AppContext";
-import ClientLayout from "./ClientLayout";
+import { LanguageProvider } from "../context/LanguageContext";
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter', display: 'swap' });
 const outfit = Outfit({ subsets: ["latin"], variable: '--font-outfit', display: 'swap' });
 
 export const metadata = {
-    title: "Finance System V2",
-    description: "Bespoke expense management system",
+    title: "Caja Fuerte",
+    description: "Gestión de finanzas personales con privacidad radical.",
+    icons: {
+        icon: '/favicon.svg',
+    }
 };
 
 export const viewport = {
@@ -25,12 +28,12 @@ export default function RootLayout({
 }) {
     return (
         <html lang="es" suppressHydrationWarning data-theme="dark" className={`${inter.variable} ${outfit.variable}`}>
-            <body>
-                <AppProvider>
-                    <ClientLayout>
+            <body suppressHydrationWarning>
+                <LanguageProvider>
+                    <AppProvider>
                         {children}
-                    </ClientLayout>
-                </AppProvider>
+                    </AppProvider>
+                </LanguageProvider>
             </body>
         </html>
     );

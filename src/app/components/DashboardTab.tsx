@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { IconShapes } from './Icons';
 import { Transaction } from "../../types";
 import { useRouter } from 'next/navigation';
+import { formatCurrency } from '../../lib/utils';
+import { useLanguage } from '../../context/LanguageContext';
 
 type DashboardTabProps = {
     transactions: Transaction[];
@@ -54,6 +55,7 @@ export const DashboardTab = ({
 }: DashboardTabProps) => {
     const router = useRouter();
     const windowWidth = useWindowWidth();
+    const { t } = useLanguage();
 
     // Responsive breakpoints
     const isMobile = windowWidth < 640;   // phones
@@ -180,23 +182,23 @@ export const DashboardTab = ({
 
     /* ─────────── shared style tokens ─────────── */
     const card: React.CSSProperties = {
-        background: '#141714', border: '1px solid #222',
+        background: 'var(--surface)', border: '1px solid var(--border)',
         borderRadius: '10px', padding: '1.25rem',
         display: 'flex', flexDirection: 'column',
     };
     const cardLabel: React.CSSProperties = {
-        fontSize: '0.65rem', fontWeight: 800, color: '#8c8c80',
+        fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)',
         letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.75rem'
     };
     const stableBadge: React.CSSProperties = {
-        background: '#5d7253', color: '#fff', fontSize: '0.55rem',
+        background: 'var(--primary)', color: 'var(--primary-text)', fontSize: '0.55rem',
         padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: 800, letterSpacing: '0.05em'
     };
     const panelTitleBar: React.CSSProperties = {
-        width: '4px', height: '16px', background: '#5d7253', borderRadius: '2px'
+        width: '4px', height: '16px', background: 'var(--primary)', borderRadius: '2px'
     };
     const seeAll: React.CSSProperties = {
-        fontSize: '0.65rem', fontWeight: 800, color: '#5d7253',
+        fontSize: '0.65rem', fontWeight: 800, color: 'var(--primary)',
         cursor: 'pointer', letterSpacing: '0.05em'
     };
 
@@ -223,64 +225,101 @@ export const DashboardTab = ({
             <div style={topRowStyle}>
 
                 {/* 1. Liquidez actual */}
-                <div style={{ ...card, background: isTravelMode ? '#2a1515' : '#141714', position: 'relative', overflow: 'hidden', minHeight: '140px' }}>
+                <div style={{ ...card, position: 'relative', overflow: 'hidden', minHeight: '140px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                        <span style={cardLabel}>{isTravelMode ? 'Presupuesto Viaje' : 'Liquidez Actual'}</span>
-                        <span style={stableBadge}>ESTABLE</span>
+                        <span style={cardLabel}>{isTravelMode ? t('dashboard.travel_budget') : t('dashboard.liquidity')}</span>
+                        {(() => {
+                            const isNeg = currentBalance < 0;
+                            const isLow = !isNeg && monthIncome > 0 && (currentBalance / monthIncome) < 0.1;
+                            const isSolid = !isNeg && !isLow && monthIncome > 0 && (currentBalance / monthIncome) > 0.4;
+                            const bg = isNeg ? '#8e4a39' : isLow ? '#78350f' : isSolid ? '#2e4d28' : 'var(--primary)';
+                            const fg = isNeg ? '#fff' : isLow ? '#fbbf24' : '#fff';
+                            const label = isNeg ? t('dashboard.status_red') : isLow ? t('dashboard.status_tight') : isSolid ? t('dashboard.status_solid') : t('dashboard.status_stable');
+                            return <span style={{ ...stableBadge, background: bg, color: fg }}>{label}</span>;
+                        })()}
                     </div>
-                    <div style={{ fontSize: isMobile ? '1.8rem' : '2.2rem', fontWeight: 900, color: '#e0e0ce', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-                        {sym}{currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    <div style={{ fontSize: isMobile ? '1.8rem' : '2.2rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+                        {formatCurrency(currentBalance, sym)}
                     </div>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: spendingChangePct > 0 ? '#8e4a39' : '#5d7253', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        {spendingChangePct > 0 ? '↗' : '↘'} {Math.abs(spendingChangePct).toFixed(1)}% {spendingChangePct > 0 ? 'más' : 'menos'} este mes
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: spendingChangePct > 0 ? 'var(--accent)' : 'var(--primary)', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        {spendingChangePct > 0 ? '↗' : '↘'} {Math.abs(spendingChangePct).toFixed(1)}% {spendingChangePct > 0 ? t('dashboard.spending_more') : t('dashboard.spending_less')}
                     </div>
-                    {/* subtle wave */}
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, opacity: 0.06 }}>
-                        <svg viewBox="0 0 100 20" preserveAspectRatio="none" style={{ width: '100%', height: '36px', display: 'block' }}>
-                            <path d="M0,20 L0,12 Q25,20 50,10 T100,4 L100,20 Z" fill="#5d7253" />
+                    {/* dynamic wave */}
+                    <div style={{
+                        position: 'absolute', bottom: 0, left: 0, right: 0,
+                        opacity: 0.08 + (progressPct / 200),
+                        transition: 'all 1s ease-in-out'
+                    }}>
+                        <svg viewBox="0 0 100 20" preserveAspectRatio="none" style={{
+                            width: '100%',
+                            height: `${30 + (progressPct * 0.4)}px`,
+                            display: 'block',
+                            transition: 'height 1s ease-in-out'
+                        }}>
+                            <path d="M0,20 L0,12 Q25,20 50,10 T100,4 L100,20 Z" fill={progressPct > 80 ? '#8e4a39' : '#5d7253'} />
                         </svg>
                     </div>
                 </div>
 
                 {/* 2. Meta de Gastos */}
                 <div style={card}>
-                    <span style={cardLabel}>Meta de Gastos</span>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, position: 'relative', margin: '0.25rem 0' }}>
-                        <svg viewBox="0 0 100 100" style={{ width: '100px', height: '100px' }}>
-                            <circle cx="50" cy="50" r={radius} stroke="#222" strokeWidth="12" fill="none" />
-                            <circle
-                                cx="50" cy="50" r={radius}
-                                stroke={progressPct >= 100 ? '#8e4a39' : '#5d7253'}
-                                strokeWidth="12" fill="none"
-                                strokeDasharray={circumference}
-                                strokeDashoffset={strokeDashoffset}
-                                style={{ transition: 'stroke-dashoffset 1s ease-in-out' }}
-                                transform="rotate(-90 50 50)"
-                                strokeLinecap="round"
-                            />
-                        </svg>
-                        <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#e0e0ce' }}>{Math.round(progressPct)}%</span>
-                            <span style={{ fontSize: '0.55rem', fontWeight: 800, color: '#8c8c80', textTransform: 'uppercase' }}>Usado</span>
-                        </div>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-                        <div>
-                            <div style={{ fontSize: '0.55rem', color: '#8c8c80', fontWeight: 800, textTransform: 'uppercase' }}>Gastado</div>
-                            <div style={{ fontSize: '0.75rem', fontWeight: 900, color: '#e0e0ce' }}>
-                                {sym}{totalExpenseForGoal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    <span style={cardLabel}>{t('dashboard.expense_goal') ?? 'Meta de Gastos'}</span>
+                    {monthlyGoal === 0 ? (
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '0.5rem 0' }}>
+                            <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#1e1e1e', border: '1px dashed #383838', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4a4d4a" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                             </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#8c8c80' }}>{t('dashboard.no_limit')}</div>
+                                <div style={{ fontSize: '0.58rem', color: '#4a4d4a', marginTop: '0.2rem', fontWeight: 600 }}>{t('dashboard.set_goal_hint')}</div>
+                            </div>
+                            <button
+                                onClick={() => router.push('/profile')}
+                                style={{ background: 'transparent', border: '1px solid #383838', borderRadius: '6px', color: '#737670', fontSize: '0.6rem', fontWeight: 800, padding: '0.45rem 0.9rem', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.06em', textTransform: 'uppercase', transition: 'all 0.15s' }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#5d7253'; (e.currentTarget as HTMLButtonElement).style.color = '#5d7253'; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#383838'; (e.currentTarget as HTMLButtonElement).style.color = '#737670'; }}
+                            >
+                                Configurar límite
+                            </button>
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: '0.55rem', color: '#8c8c80', fontWeight: 800, textTransform: 'uppercase' }}>Límite</div>
-                            <div style={{ fontSize: '0.75rem', fontWeight: 900, color: '#e0e0ce' }}>{sym}{monthlyGoal.toLocaleString()}</div>
-                        </div>
-                    </div>
+                    ) : (
+                        <>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, position: 'relative', margin: '0.25rem 0' }}>
+                                <svg viewBox="0 0 100 100" style={{ width: '100px', height: '100px' }}>
+                                    <circle cx="50" cy="50" r={radius} stroke="#222" strokeWidth="12" fill="none" />
+                                    <circle
+                                        cx="50" cy="50" r={radius}
+                                        stroke={progressPct >= 100 ? '#8e4a39' : '#5d7253'}
+                                        strokeWidth="12" fill="none"
+                                        strokeDasharray={circumference}
+                                        strokeDashoffset={strokeDashoffset}
+                                        style={{ transition: 'stroke-dashoffset 1s ease-in-out' }}
+                                        transform="rotate(-90 50 50)"
+                                        strokeLinecap="round"
+                                    />
+                                </svg>
+                                <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#e0e0ce' }}>{Math.round(progressPct)}%</span>
+                                    <span style={{ fontSize: '0.55rem', fontWeight: 800, color: '#8c8c80', textTransform: 'uppercase' }}>{t('common.used')}</span>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
+                                <div>
+                                    <div style={{ fontSize: '0.55rem', color: '#8c8c80', fontWeight: 800, textTransform: 'uppercase' }}>{t('common.spent')}</div>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 900, color: '#e0e0ce' }}>{formatCurrency(totalExpenseForGoal, sym)}</div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ fontSize: '0.55rem', color: '#8c8c80', fontWeight: 800, textTransform: 'uppercase' }}>{t('common.limit')}</div>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 900, color: '#e0e0ce' }}>{formatCurrency(monthlyGoal, sym)}</div>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* 3. Categorías Top — hidden on mobile if only 1-col to save space, shown otherwise */}
                 <div style={{ ...card, display: isMobile ? 'none' : 'flex' }}>
-                    <span style={cardLabel}>Categorías Top</span>
+                    <span style={cardLabel}>{t('dashboard.top_cats')}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
                         <div style={{ width: '85px', height: '85px', position: 'relative', flexShrink: 0 }}>
                             <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
@@ -309,7 +348,7 @@ export const DashboardTab = ({
                                     <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#8c8c80' }}>{Math.round(seg.pct)}%</span>
                                 </div>
                             )) : (
-                                <div style={{ fontSize: '0.7rem', color: '#8c8c80', fontWeight: 700 }}>Sin datos aún</div>
+                                <div style={{ fontSize: '0.7rem', color: '#8c8c80', fontWeight: 700 }}>{t('dashboard.no_data')}</div>
                             )}
                         </div>
                     </div>
@@ -325,14 +364,14 @@ export const DashboardTab = ({
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
                         <div style={{ fontSize: '0.7rem', fontWeight: 900, color: '#e0e0ce', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <div style={panelTitleBar} />
-                            Actividad Reciente
+                            {t('dashboard.activity')}
                         </div>
-                        <div onClick={() => router.push('/movements')} style={seeAll}>VER TODO</div>
+                        <div onClick={() => router.push('/app/movements')} style={seeAll}>{t('common.see_all')}</div>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', overflowY: 'auto' }}>
                         {recentTx.length === 0 && (
-                            <div style={{ fontSize: '0.75rem', color: '#8c8c80', fontWeight: 700 }}>Sin transacciones recientes.</div>
+                            <div style={{ fontSize: '0.75rem', color: '#8c8c80', fontWeight: 700 }}>{t('dashboard.no_recent')}</div>
                         )}
                         {recentTx.map((tx) => (
                             <div
@@ -341,22 +380,22 @@ export const DashboardTab = ({
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                     padding: '0.65rem 0.75rem', borderRadius: '8px', cursor: 'pointer',
-                                    background: '#1a1a1a', transition: 'background 0.15s'
+                                    background: 'var(--surface-alt)', transition: 'background 0.15s'
                                 }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
                                     <div style={{
-                                        width: '34px', height: '34px', borderRadius: '8px', background: '#222',
+                                        width: '34px', height: '34px', borderRadius: '8px', background: 'var(--surface-alt)',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         fontSize: '1rem', flexShrink: 0
                                     }}>
                                         {tx.icon && tx.icon.length < 5 ? tx.icon : getIcon(tx.tag)}
                                     </div>
                                     <div style={{ minWidth: 0 }}>
-                                        <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#e0e0ce', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-main)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {tx.desc}
                                         </div>
-                                        <div style={{ fontSize: '0.6rem', color: '#8c8c80', fontWeight: 600, marginTop: '0.1rem' }}>
+                                        <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '0.1rem' }}>
                                             {tx.tag} • {tx.date}
                                         </div>
                                     </div>
@@ -366,7 +405,7 @@ export const DashboardTab = ({
                                     color: tx.type === 'expense' ? '#8e4a39' : '#5d7253',
                                     fontFamily: 'var(--font-display)'
                                 }}>
-                                    {tx.type === 'expense' ? '-' : '+'}{sym}{tx.amount.toFixed(2)}
+                                    {tx.type === 'expense' ? '-' : '+'}{formatCurrency(tx.amount, sym)}
                                 </div>
                             </div>
                         ))}
@@ -383,9 +422,8 @@ export const DashboardTab = ({
                                 <line x1="8" y1="2" x2="8" y2="6" />
                                 <line x1="3" y1="10" x2="21" y2="10" />
                             </svg>
-                            Ficha de Pagos
-                        </div>
-                        <span style={{ ...stableBadge, background: '#1a1a1a', color: '#5d7253', border: '1px solid #333' }}>
+                            {t('dashboard.payment_sheet')}
+                        </div>                        <span style={{ ...stableBadge, background: '#1a1a1a', color: '#5d7253', border: '1px solid #333' }}>
                             {curMonthName?.toUpperCase()}
                         </span>
                     </div>
@@ -393,7 +431,7 @@ export const DashboardTab = ({
                     <div style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', flex: 1 }}>
                         {fixedTxsData.length === 0 && (
                             <div style={{ fontSize: '0.75rem', color: '#8c8c80', fontWeight: 700 }}>
-                                Sin gastos fijos registrados.
+                                {t('dashboard.no_fixed')}
                             </div>
                         )}
                         {fixedTxsData.map((item, i) => {
@@ -449,12 +487,12 @@ export const DashboardTab = ({
                                             )}
                                         </div>
                                         <div style={{ fontSize: '0.6rem', color: '#8c8c80', fontWeight: 600 }}>
-                                            Referencia: Día {day} • {tx.tag}
+                                            {t('dashboard.reference_day')} {day} • {tx.tag}
                                         </div>
                                     </div>
                                     {/* amount */}
                                     <div style={{ fontSize: '0.8rem', fontWeight: 900, color: isPaid ? '#5d7253' : '#8e4a39', flexShrink: 0, fontFamily: 'var(--font-display)' }}>
-                                        {sym}{tx.amount.toFixed(2)}
+                                        {formatCurrency(tx.amount, sym)}
                                     </div>
                                 </div>
                             );
@@ -486,7 +524,7 @@ export const DashboardTab = ({
                                 <line x1="12" y1="8" x2="12" y2="16" />
                                 <line x1="8" y1="12" x2="16" y2="12" />
                             </svg>
-                            Añadir Recurrente
+                            {t('dashboard.add_recurring')}
                         </button>
                     </div>
                 </div>

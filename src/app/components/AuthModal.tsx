@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import './AuthModal.css';
+import { Logo } from './Logo';
 
 type AuthModalProps = {
     onLogin: (userId: string, username: string) => void;
 };
-
 export const AuthModal = ({ onLogin }: AuthModalProps) => {
     const [isRegister, setIsRegister] = useState(false);
     const [formData, setFormData] = useState({ username: '', password: '' });
@@ -44,12 +44,7 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
 
                 {/* Logo bar */}
                 <div className="auth-logo-bar">
-                    <div className="auth-logo-icon">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
-                            <rect x="3" y="11" width="18" height="11" rx="2" />
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                        </svg>
-                    </div>
+                    <Logo size={24} loading={isLoading} />
                     <span className="auth-logo-name">Caja Fuerte</span>
                 </div>
 

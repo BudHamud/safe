@@ -91,6 +91,34 @@ export const IconShapes = ({ type }: { type: string }) => {
         </svg>
     );
 
+    if (type === "plane") return (
+        <svg {...svgProps} fill="currentColor" stroke="none">
+            <path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" />
+        </svg>
+    );
+
+    if (type === "plane-off") return (
+        <svg {...svgProps} fill="none">
+            {/* Same airplane with a diagonal strike-through */}
+            <path fill="currentColor" d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" opacity="0.45" />
+            {/* Strike line */}
+            <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+    );
+
+    if (type === "bell") return (
+        <svg {...svgProps}>
+            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 01-3.46 0" />
+        </svg>
+    );
+
+    if (type === "shield") return (
+        <svg {...svgProps}>
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+    );
+
     // Default icon
     return (
         <svg {...svgProps}>

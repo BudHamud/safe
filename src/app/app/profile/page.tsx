@@ -1,0 +1,34 @@
+"use client";
+import React from "react";
+import { ProfileTab } from "../../components/ProfileTab";
+import { useAppContext } from "../../../context/AppContext";
+import { useRouter } from "next/navigation";
+
+export default function ProfilePage() {
+    const context = useAppContext();
+    const router = useRouter();
+
+    if (!context.isClient || !context.userId) return null;
+
+    return (
+        <ProfileTab
+            userName={context.userName!}
+            theme={context.theme}
+            toggleTheme={context.toggleTheme}
+            onLogout={() => {
+                context.handleLogout();
+                router.push('/app');
+            }}
+            transactions={context.transactions}
+            userId={context.userId}
+            monthlyGoal={context.userGoal}
+            onUpdate={() => {
+                if (context.userId) context.loadUserData(context.userId);
+            }}
+            globalCurrency={context.globalCurrency}
+            onCurrencyChange={context.handleCurrencyChange}
+            availableCategories={context.allCategories}
+            onCategoryChangeInfo={() => context.setCatSignal(c => c + 1)}
+        />
+    );
+}

@@ -73,8 +73,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             loadUserData(storedUserId);
         }
 
-        if (typeof window !== 'undefined') {
-            setTravelModeStart(localStorage.getItem('financeTravelModeStart'));
+        const storedTravel = localStorage.getItem('financeTravelModeStart');
+        if (storedTravel) {
+            setTravelModeStart(storedTravel);
+            document.documentElement.setAttribute('data-travel', 'true');
+        } else {
+            document.documentElement.removeAttribute('data-travel');
         }
     }, []);
 
@@ -170,11 +174,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         if (travelModeStart) {
             localStorage.removeItem('financeTravelModeStart');
             setTravelModeStart(null);
+            document.documentElement.removeAttribute('data-travel');
         } else {
             if (confirm("¿Activar Modo Viaje / Cuenta Nueva? Esto aislará los saldos antiguos temporalmente.")) {
                 const todayStr = new Date().toISOString().split('T')[0];
                 localStorage.setItem('financeTravelModeStart', todayStr);
                 setTravelModeStart(todayStr);
+                document.documentElement.setAttribute('data-travel', 'true');
             }
         }
     };
@@ -229,7 +235,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (travelModeStart) {
         mappedTransactions = mappedTransactions.filter(t => {
             if (t.date === 'Hoy' || t.date === 'Ayer') return true;
-            return t.date >= travelModeStart;
+            const txDate = t.date.replace(/\//g, '-');
+            return txDate >= travelModeStart;
         });
     }
 

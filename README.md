@@ -1,6 +1,6 @@
 # 🏦 CajaFuerte - Financial Management System V2
 
-**CajaFuerte** (Strongbox) is a comprehensive expense and income management application designed with a premium, minimalist, and functional aesthetic. It provides total control over your finances with real-time multi-currency support and an optimized user experience for both web and mobile devices (Android).
+**CajaFuerte** (safe) is a comprehensive expense and income management application designed with a premium, minimalist, and functional aesthetic. It provides total control over your finances with real-time multi-currency support and an optimized user experience for both web and mobile devices (Android).
 
 ## 📊 Key Features
 
