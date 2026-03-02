@@ -200,6 +200,7 @@ export const translations = {
 
     // ── DashboardTab ───────────────────────────────────────────
     'dashboard.travel_budget': { es: 'Presupuesto Viaje', en: 'Travel Budget' },
+    'dashboard.expense_goal': { es: 'Meta de Gastos', en: 'Expense Goal' },
     'dashboard.liquidity': { es: 'Liquidez Actual', en: 'Current Liquidity' },
     'dashboard.status_red': { es: 'EN ROJO', en: 'IN RED' },
     'dashboard.status_tight': { es: 'AJUSTADO', en: 'TIGHT' },
