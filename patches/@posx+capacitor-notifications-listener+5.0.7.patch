@@ -1,0 +1,85 @@
+diff --git a/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java b/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java
+index 5f76609..98c7c34 100644
+--- a/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java
++++ b/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java
+@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver;
+ import android.content.Context;
+ import android.content.Intent;
+ import android.content.IntentFilter;
++import android.content.ComponentName;
+ import android.os.Build;
+ import android.provider.Settings;
+ import android.util.Log;
+@@ -24,10 +25,8 @@ import org.json.JSONArray;
+ import org.json.JSONException;
+ import org.json.JSONObject;
+ 
+-@CapacitorPlugin(
+-        name = "NotificationsListener",
+-        permissions = {@Permission(alias = "notifications", strings = {Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE})}
+-)
++@CapacitorPlugin(name = "NotificationsListener", permissions = {
++        @Permission(alias = "notifications", strings = { Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE }) })
+ public class NotificationsListenerPlugin extends Plugin {
+ 
+     private static final String TAG = NotificationsListenerPlugin.class.getSimpleName();
+@@ -68,6 +67,19 @@ public class NotificationsListenerPlugin extends Plugin {
+         filter.addAction(NotificationService.ACTION_REMOVE);
+         notificationReceiver = new NotificationReceiver(getContext(), filter);
+         NotificationService.notificationReceiver = notificationReceiver;
++
++        // Force Android to re-bind the NotificationListenerService specifically when
++        // app opens
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
++            try {
++                ComponentName componentName = new ComponentName(getContext(), NotificationService.class);
++                android.service.notification.NotificationListenerService.requestRebind(componentName);
++                Log.d(TAG, "Requested rebind for NotificationService");
++            } catch (Exception e) {
++                Log.e(TAG, "Error requesting rebind: " + e.getMessage());
++            }
++        }
++
+         call.resolve();
+     }
+ 
+@@ -86,7 +98,14 @@ public class NotificationsListenerPlugin extends Plugin {
+     @PluginMethod
+     public void isListening(PluginCall call) {
+         JSObject ret = new JSObject();
+-        ret.put("value", NotificationService.isConnected);
++        boolean isGranted = false;
++        String packageName = getContext().getPackageName();
++        String enabledListeners = Settings.Secure.getString(getContext().getContentResolver(),
++                "enabled_notification_listeners");
++        if (enabledListeners != null && enabledListeners.contains(packageName)) {
++            isGranted = true;
++        }
++        ret.put("value", isGranted);
+         call.resolve(ret);
+     }
+ 
+@@ -137,9 +156,11 @@ public class NotificationsListenerPlugin extends Plugin {
+     private void attachAppStateListener() {
+         bridge.getApp().setStatusChangeListener((isActive) -> {
+             NotificationService.webViewActive = isActive;
+-            // Restore cached notifications if the webview is unpaused, but not before webView starts the listener after killing
++            // Restore cached notifications if the webview is unpaused, but not before
++            // webView starts the listener after killing
+             // restoreCachedNotifications() called from webview will handle that case.
+-            if (isActive && NotificationService.cacheEnabled != null && NotificationService.cacheEnabled && NotificationService.notificationReceiver != null) {
++            if (isActive && NotificationService.cacheEnabled != null && NotificationService.cacheEnabled
++                    && NotificationService.notificationReceiver != null) {
+                 restoreFromCache();
+             }
+         });
+@@ -187,7 +208,8 @@ public class NotificationsListenerPlugin extends Plugin {
+         @SuppressLint("UnspecifiedRegisterReceiverFlag")
+         private NotificationReceiver(Context context, IntentFilter filter) {
+             Log.d(TAG, "NotificationReceiver created");
+-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
++            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
++                    && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                 context.registerReceiver(this, filter);
+             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                 context.registerReceiver(this, filter, Context.RECEIVER_EXPORTED);
