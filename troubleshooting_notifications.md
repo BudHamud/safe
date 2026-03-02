@@ -11,13 +11,90 @@ However, the user reports two critical issues:
 2. **Permission "Revocation" / Sleep state**: When the user re-opens the app after force-closing it, the app behaves as if the permission was revoked. The user is forced to go back into the Android Settings, disable the Notification Access toggle, wait 10 seconds, and re-enable it for the listener to start working again.
 
 ### What we have tried so far
-1. **Frontend Caching**: We enabled `cacheNotifications: true` in the plugin initialization (`useBankNotifications.ts`) and called `restoreCachedNotifications()` on app startup. This was intended to handle the case where the WebView dies but the Service stays alive.
-2. **Native Patching**: We used `patch-package` to modify the Java code of the plugin (`NotificationsListenerPlugin.java`). 
-   - We changed the `isListening()` method to query `Settings.Secure.getString(resolver, "enabled_notification_listeners")` instead of relying on a volatile boolean, so the JS layer accurately knows if the system permission is granted.
-   - We added `android.service.notification.NotificationListenerService.requestRebind(componentName)` on plugin load (Android 7.0+) to force the OS to wake up the service if it was sleeping.
-3. **Battery Optimization**: The user was instructed to set the app battery usage to "Unrestricted" and lock the app in the Recents menu.
 
-Despite these changes, the issue persists. The service dies completely and fails to re-bind gracefully.
+#### 1. Frontend Caching
+We enabled `cacheNotifications: true` in the plugin initialization (`useBankNotifications.ts`) and called `restoreCachedNotifications()` on app startup. This was intended to handle the case where the WebView dies but the native Android Service stays alive in the background caching data.
+
+```typescript
+// src/hooks/useBankNotifications.ts
+const startService = async () => {
+    try {
+        await plugin.startListening({ packagesWhitelist: whitelist, cacheNotifications: true });
+        console.warn('[BankNotif] Servicio de escucha activo.');
+    } catch (e) {
+        console.error('[BankNotif] Error al iniciar escucha:', e);
+    }
+};
+
+const setup = async () => {
+    const { value } = await plugin.isListening();
+    setPermissionGranted(value);
+    
+    await startService();
+
+    // Restore mapped notifications that arrived while the app was closed
+    try {
+        await plugin.restoreCachedNotifications();
+    } catch (e) {
+        console.error('[BankNotif] Error al restaurar notificaciones:', e);
+    }
+    // ...
+```
+
+#### 2. Native Plugin Patching (Java)
+Because the app forced the user to manually reset permissions every time the app was opened from a swipe-closed state, we suspected the plugin was misinterpreting the system's granted permissions and failing to wake itself up. We used `patch-package` to modify the Java code of the plugin (`NotificationsListenerPlugin.java`).
+
+**A. Checking actual System Registry instead of a volatile boolean:**
+```java
+    @PluginMethod
+    public void isListening(PluginCall call) {
+        JSObject ret = new JSObject();
+        boolean isGranted = false;
+        String packageName = getContext().getPackageName();
+        String enabledListeners = Settings.Secure.getString(getContext().getContentResolver(), "enabled_notification_listeners");
+        if (enabledListeners != null && enabledListeners.contains(packageName)) {
+            isGranted = true;
+        }
+        ret.put("value", isGranted);
+        call.resolve(ret);
+    }
+```
+
+**B. Forcing Android to Rebind the service on startup:**
+```java
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+    @PluginMethod
+    public void startListening(PluginCall call) throws JSONException {
+        // ... parameter setup ...
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(NotificationService.ACTION_RECEIVE);
+        filter.addAction(NotificationService.ACTION_REMOVE);
+        notificationReceiver = new NotificationReceiver(getContext(), filter);
+        NotificationService.notificationReceiver = notificationReceiver;
+
+        // Force Android to re-bind the NotificationListenerService specifically when app opens
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            try {
+                ComponentName componentName = new ComponentName(getContext(), NotificationService.class);
+                android.service.notification.NotificationListenerService.requestRebind(componentName);
+                Log.d(TAG, "Requested rebind for NotificationService");
+            } catch (Exception e) {
+                Log.e(TAG, "Error requesting rebind: " + e.getMessage());
+            }
+        }
+
+        call.resolve();
+    }
+```
+
+#### 3. Battery Optimization
+The user was instructed to:
+1. Set the app battery usage to **"Unrestricted"**.
+2. **Lock the app** in the Recents menu (padlock icon).
+3. If using Xiaomi/HyperOS, enable **"Autostart"**.
+
+**Result:** Despite these changes, the issue persists. The service dies completely and fails to re-bind gracefully. When the user opens the app, `isListening()` correctly identifies that the permission is technically granted, but the service doesn't actually wake up to intercept new notifications unless manually toggled off and on again in Android Settings.
 
 ---
 
