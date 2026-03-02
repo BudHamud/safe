@@ -38,6 +38,7 @@ interface NotificationListenerPlugin {
         event: 'notificationReceivedEvent',
         handler: (data: any) => void
     ): Promise<{ remove: () => void }>;
+    restoreCachedNotifications(): Promise<void>;
 }
 
 // Dynamically load the plugin only when running on a real device
@@ -256,7 +257,7 @@ export function useBankNotifications({
         // ── Starts (or restarts) the native listening service ──
         const startService = async () => {
             try {
-                await plugin.startListening({ packagesWhitelist: whitelist, cacheNotifications: false });
+                await plugin.startListening({ packagesWhitelist: whitelist, cacheNotifications: true });
                 console.warn('[BankNotif] Servicio de escucha activo.');
             } catch (e) {
                 console.error('[BankNotif] Error al iniciar escucha:', e);
@@ -270,6 +271,14 @@ export function useBankNotifications({
             setPermissionGranted(value);
 
             await startService();
+
+            // Restaurar notificaciones en caché (las que llegaron con la app cerrada)
+            try {
+                await plugin.restoreCachedNotifications();
+                console.warn('[BankNotif] Caché de notificaciones restaurada.');
+            } catch (e) {
+                console.error('[BankNotif] Error al restaurar notificaciones en caché:', e);
+            }
 
             let lastText = '';
             let lastTime = 0;
