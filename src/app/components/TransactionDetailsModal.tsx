@@ -13,16 +13,16 @@ type TransactionDetailsModalProps = {
 };
 
 // ── Design tokens ──────────────────────────────────────────
-const BG = '#161917';
-const SURFACE = '#1d201d';
-const SURFACE2 = '#232623';
-const BORDER = '#2b2e2b';
-const BORDER2 = '#383b38';
-const TEXT = '#e0ddd4';
-const MUTED = '#737670';
-const MUTED2 = '#4a4d4a';
-const GREEN = '#5c7152';
-const RED = '#8b4a38';
+const BG = 'var(--bg)';
+const SURFACE = 'var(--surface)';
+const SURFACE2 = 'var(--surface-alt)';
+const BORDER = 'var(--border)';
+const BORDER2 = 'var(--surface-hover)';
+const TEXT = 'var(--text-main)';
+const MUTED = 'var(--text-muted)';
+const MUTED2 = 'var(--border-dim)';
+const GREEN = 'var(--primary)';
+const RED = 'var(--accent)';
 const OVERLAY = 'rgba(0,0,0,0.78)';
 
 const fieldLbl: React.CSSProperties = {
@@ -186,7 +186,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                         Esta acción no se puede deshacer.
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
-                        <button onClick={confirmDelete} style={{ width: '100%', background: RED, border: 'none', borderRadius: '8px', color: '#fff', padding: '0.8rem', fontWeight: 900, fontSize: '0.75rem', letterSpacing: '0.1em', cursor: 'pointer', textTransform: 'uppercase', fontFamily: 'inherit' }}>
+                        <button onClick={confirmDelete} style={{ width: '100%', background: RED, border: 'none', borderRadius: '8px', color: 'var(--accent-text)', padding: '0.8rem', fontWeight: 900, fontSize: '0.75rem', letterSpacing: '0.1em', cursor: 'pointer', textTransform: 'uppercase', fontFamily: 'inherit' }}>
                             Eliminar
                         </button>
                         <button onClick={() => setViewMode('details')} style={{ width: '100%', background: 'transparent', border: `1px solid ${BORDER2}`, borderRadius: '8px', color: MUTED, padding: '0.8rem', fontWeight: 800, fontSize: '0.75rem', letterSpacing: '0.1em', cursor: 'pointer', textTransform: 'uppercase', fontFamily: 'inherit' }}>
@@ -370,7 +370,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                            <button onClick={handleSave} disabled={isSaving} style={{ width: '100%', background: GREEN, border: 'none', borderRadius: '8px', color: '#fff', padding: '0.8rem', fontWeight: 900, fontSize: '0.75rem', letterSpacing: '0.1em', cursor: isSaving ? 'not-allowed' : 'pointer', textTransform: 'uppercase', fontFamily: 'inherit', opacity: isSaving ? 0.7 : 1 }}>
+                            <button onClick={handleSave} disabled={isSaving} style={{ width: '100%', background: GREEN, border: 'none', borderRadius: '8px', color: 'var(--primary-text)', padding: '0.8rem', fontWeight: 900, fontSize: '0.75rem', letterSpacing: '0.1em', cursor: isSaving ? 'not-allowed' : 'pointer', textTransform: 'uppercase', fontFamily: 'inherit', opacity: isSaving ? 0.7 : 1 }}>
                                 {isSaving ? 'Guardando...' : 'Guardar Cambios'}
                             </button>
 
@@ -483,7 +483,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.2rem' }}>
                         <button
                             onClick={() => setViewMode('edit')}
-                            style={{ width: '100%', background: GREEN, border: 'none', borderRadius: '9px', color: '#fff', padding: '0.85rem', fontWeight: 900, fontSize: '0.75rem', letterSpacing: '0.1em', cursor: 'pointer', textTransform: 'uppercase', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                            style={{ width: '100%', background: GREEN, border: 'none', borderRadius: '9px', color: 'var(--primary-text)', padding: '0.85rem', fontWeight: 900, fontSize: '0.75rem', letterSpacing: '0.1em', cursor: 'pointer', textTransform: 'uppercase', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
                         >
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />

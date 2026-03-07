@@ -12,8 +12,8 @@
 /* SIDEBAR: Narrower, minimalist */
 .sidebar {
     width: 250px;
-    background-color: #0d0d0d;
-    border-right: 1px solid #1a1a1a;
+    background-color: var(--w-sidebar-bg, var(--bg));
+    border-right: 1px solid var(--w-sidebar-border, var(--border-dim));
     display: flex;
     flex-direction: column;
     position: fixed;
@@ -25,7 +25,7 @@
 
 .brand {
     padding: 2rem 1.5rem;
-    border-bottom: 1px solid #1a1a1a;
+    border-bottom: 1px solid var(--border-dim);
     display: flex;
     align-items: center;
     gap: 0.85rem;
@@ -34,7 +34,7 @@
 .brand-logo-minimal {
     width: 38px;
     height: 38px;
-    background: #e0e0ce;
+    background: var(--primary-text, #e0e0ce);
     border-radius: 6px;
     display: flex;
     align-items: center;
@@ -50,7 +50,7 @@
 .inner-circle {
     width: 22px;
     height: 22px;
-    border: 2px solid #0d0d0d;
+    border: 2px solid var(--bg);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -60,7 +60,7 @@
 .inner-dot {
     width: 6px;
     height: 6px;
-    background: #0d0d0d;
+    background: var(--bg);
     border-radius: 50%;
 }
 
@@ -69,7 +69,7 @@
     font-weight: 800;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: #ffffff;
+    color: var(--text-main);
     font-family: var(--font-display);
 }
 
@@ -85,7 +85,7 @@
     align-items: center;
     gap: 0.85rem;
     padding: 1rem 1.5rem;
-    color: #666666;
+    color: var(--w-sidebar-text, var(--text-muted));
     font-weight: 600;
     font-size: 0.95rem;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -93,12 +93,12 @@
 }
 
 .nav-item:hover {
-    color: #e0e0ce;
+    color: var(--text-main);
 }
 
 @media (min-width: 769px) {
     .nav-item.active {
-        background-color: var(--primary);
+        background-color: var(--w-sidebar-active, var(--primary));
         color: white;
         border-radius: 8px;
         margin: 0 0.75rem;
@@ -798,7 +798,7 @@ html[data-theme][data-travel="true"] .section-title {
 /* APP HEADER (Universal) */
 .sidebar-footer {
     padding: 1.2rem 1.5rem;
-    border-top: 1px solid #1a1a1a;
+    border-top: 1px solid var(--border-dim);
     display: flex;
     justify-content: flex-start;
     gap: 0.5rem;
@@ -809,9 +809,9 @@ html[data-theme][data-travel="true"] .section-title {
     width: 38px;
     height: 38px;
     border-radius: 8px;
-    background: #1a1a1a;
-    border: 1px solid #333;
-    color: #8c8c80;
+    background: var(--surface-alt);
+    border: 1px solid var(--border-dim);
+    color: var(--text-muted);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -821,19 +821,19 @@ html[data-theme][data-travel="true"] .section-title {
 }
 
 .sidebar-util-btn:hover {
-    border-color: #555;
-    color: #fff;
+    border-color: var(--border);
+    color: var(--text-main);
 }
 
 .sidebar-util-btn.active {
-    color: #fff;
-    border-color: #5d7253;
+    color: var(--text-main);
+    border-color: var(--primary);
 }
 
 .sidebar-util-btn.travel-bt.active {
-    color: #fff;
-    background: #1a1a1a;
-    border-color: #5d7253;
+    color: var(--text-main);
+    background: var(--surface-alt);
+    border-color: var(--primary);
 }
 
 
@@ -842,8 +842,8 @@ html[data-theme][data-travel="true"] .section-title {
     display: none;
     justify-content: space-between;
     align-items: center;
-    background: #141714;
-    border-bottom: 1px solid #1a1a1a;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border-dim);
     padding: 0.75rem 1rem;
     position: fixed;
     top: 0;
@@ -891,7 +891,7 @@ html[data-theme][data-travel="true"] .section-title {
 .app-welcome {
     font-size: 0.8rem;
     font-weight: 900;
-    color: #e0e0ce;
+    color: var(--text-main);
     text-transform: uppercase;
     margin-top: 2px;
 }
@@ -906,12 +906,12 @@ html[data-theme][data-travel="true"] .section-title {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: #1a1a1a;
-    border: 1px solid #333;
+    background: var(--surface-alt);
+    border: 1px solid var(--border-dim);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #8c8c80;
+    color: var(--text-muted);
     position: relative;
 }
 
@@ -931,7 +931,7 @@ html[data-theme][data-travel="true"] .section-title {
     align-items: center;
     justify-content: center;
     line-height: 1;
-    border: 2px solid #0d0d0d;
+    border: 2px solid var(--bg);
     pointer-events: none;
 }
 
@@ -963,9 +963,9 @@ html[data-theme][data-travel="true"] .section-title {
         width: 36px;
         height: 36px;
         border-radius: 50%;
-        background: #1a1a1a;
-        color: #8c8c80;
-        border: 1px solid #333;
+        background: var(--surface-alt);
+        color: var(--text-muted);
+        border: 1px solid var(--border-dim);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -975,9 +975,9 @@ html[data-theme][data-travel="true"] .section-title {
     }
 
     .mobile-travel-btn-round.active {
-        background: #1a1a1a;
-        border-color: #444;
-        color: #ffffff;
+        background: var(--surface-alt);
+        border-color: var(--border);
+        color: var(--text-main);
         transform: scale(1.05);
     }
 
@@ -995,7 +995,7 @@ html[data-theme][data-travel="true"] .section-title {
         top: auto;
         flex-direction: row;
         border: none;
-        background: #141714;
+        background: var(--surface);
         z-index: 50;
         box-shadow: none;
         border-radius: 0;

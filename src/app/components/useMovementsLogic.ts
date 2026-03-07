@@ -2,9 +2,19 @@ import { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { Transaction } from '../../types';
 import {
-    MONTHS, parseDate, formatDate,
-    buildExportFilename, exportToExcel, parseExcelRow,
+    MONTHS, parseDate,
+    buildExportFilename, exportToExcel,
+    ColumnMapping, parseExcelRowMapped,
+    MonthBlock, buildImportReview, ImportedRow,
 } from './movements.utils';
+
+// ─── Import draft ─────────────────────────────────────────────────────────────
+
+export interface ImportDraft {
+    headers: string[];
+    sheets: { rows: Record<string, unknown>[] }[];
+    fallbackYear: string;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,6 +76,9 @@ export const useMovementsLogic = (
     const now = new Date();
     const sym = globalCurrency === 'ILS' ? '₪' : globalCurrency === 'EUR' ? '€' : '$';
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [importDraft, setImportDraft] = useState<ImportDraft | null>(null);
+    const [importReview, setImportReview] = useState<MonthBlock[] | null>(null);
+    const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
 
     const ITEMS_PER_PAGE = 10;
     const savedGoal = typeof window !== 'undefined' ? Number(localStorage.getItem('monthlyGoal') ?? 0) : 0;
@@ -160,6 +173,7 @@ export const useMovementsLogic = (
         exportToExcel(filteredTxs, filename, sym);
     };
 
+    // Step 1: read file → detect headers → open mapping modal
     const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !userId) return;
@@ -167,37 +181,140 @@ export const useMovementsLogic = (
         const fallbackYear = file.name.match(/\b(20\d{2})\b/)?.[1] ?? String(now.getFullYear());
         const reader = new FileReader();
 
-        reader.onload = async (evt) => {
+        reader.onload = (evt) => {
             try {
                 const wb = XLSX.read(evt.target?.result, { type: 'binary', cellDates: true });
+                const sheets: { rows: Record<string, unknown>[] }[] = [];
+                let detectedHeaders: string[] = [];
 
                 for (const sheetName of wb.SheetNames) {
-                    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { raw: false, defval: '' }) as Record<string, unknown>[];
-                    let lastDate = new Date().toISOString().split('T')[0];
+                    const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1 }) as any[][];
+                    if (rawRows.length === 0) continue;
 
-                    for (const raw of rows) {
-                        const { row, resolvedDate } = parseExcelRow(raw, fallbackYear, lastDate);
-                        lastDate = resolvedDate;
-                        if (!row) continue;
-
-                        await fetch('/api/transactions', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ ...row, icon: '💳', userId }),
-                        });
+                    // Find header row: first row that has ≥2 non-empty cells that look like labels
+                    let headerRowIndex = 0;
+                    for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
+                        const row = rawRows[i];
+                        if (!Array.isArray(row)) continue;
+                        const cells = row.map(c => String(c || '').trim()).filter(Boolean);
+                        // At least 2 cells AND none look like a pure number or a date value
+                        const labelLike = cells.filter(c => isNaN(Number(c)) && !c.match(/^\d{1,2}[/\-]\d{1,2}/));
+                        if (labelLike.length >= 2) {
+                            headerRowIndex = i;
+                            break;
+                        }
                     }
+
+                    const rows = XLSX.utils.sheet_to_json(
+                        wb.Sheets[sheetName],
+                        { raw: true, defval: '', range: headerRowIndex },
+                    ) as Record<string, unknown>[];
+
+                    if (rows.length > 0 && detectedHeaders.length === 0) {
+                        detectedHeaders = Object.keys(rows[0]).map(k => k.trim());
+                    }
+                    sheets.push({ rows });
                 }
 
-                onTransactionsUpdated();
+                if (detectedHeaders.length === 0) {
+                    alert('No se pudieron detectar columnas en el archivo.');
+                    return;
+                }
+
+                setImportDraft({ headers: detectedHeaders, sheets, fallbackYear });
             } catch (err) {
-                console.error('Error importing Excel', err);
-                alert('Hubo un error al procesar el archivo Excel.');
+                console.error('Error reading Excel', err);
+                alert('Hubo un error al leer el archivo Excel.');
             } finally {
                 if (fileInputRef.current) fileInputRef.current.value = '';
             }
         };
 
         reader.readAsBinaryString(file);
+    };
+
+    // Step 2a: user confirmed column mapping → parse rows and show review
+    const handleConfirmMapping = (mapping: ColumnMapping) => {
+        if (!importDraft) return;
+
+        const parsedRows: ImportedRow[] = [];
+        let lastDate = new Date().toISOString().split('T')[0];
+
+        for (const { rows } of importDraft.sheets) {
+            for (const raw of rows) {
+                const keyCols = [mapping.dateCol, mapping.debitCol, mapping.creditCol].filter(Boolean);
+                if (keyCols.length > 0 && keyCols.every(k => !String(raw[k] ?? '').trim())) continue;
+
+                const { row, resolvedDate } = parseExcelRowMapped(raw, mapping, importDraft.fallbackYear, lastDate);
+                lastDate = resolvedDate;
+                if (!row) continue;
+                parsedRows.push(row);
+            }
+        }
+
+        if (parsedRows.length === 0) {
+            alert('No se encontraron filas válidas en el archivo.');
+            return;
+        }
+
+        const blocks = buildImportReview(parsedRows, transactions);
+        setImportDraft(null);
+        setImportReview(blocks);
+    };
+
+    // Step 2b: user reviewed and confirmed selected rows → batch POST
+    const CHUNK_SIZE = 500;
+    const handleConfirmReview = async (selectedRows: ImportedRow[]) => {
+        if (!userId) return;
+        try {
+            if (selectedRows.length === 0) {
+                setImportReview(null);
+                return;
+            }
+
+            const batch = selectedRows.map(row => ({ ...row, icon: '💳', userId }));
+            const totalChunks = Math.ceil(batch.length / CHUNK_SIZE);
+            setImportProgress({ done: 0, total: batch.length });
+
+            for (let i = 0; i < batch.length; i += CHUNK_SIZE) {
+                const chunk = batch.slice(i, i + CHUNK_SIZE);
+                const res = await fetch('/api/transactions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(chunk),
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err?.error ?? `Error HTTP ${res.status} en chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${totalChunks}`);
+                }
+                setImportProgress({ done: Math.min(i + CHUNK_SIZE, batch.length), total: batch.length });
+            }
+
+            setImportProgress(null);
+            setImportReview(null);
+            onTransactionsUpdated();
+        } catch (err) {
+            console.error('Error importing Excel', err);
+            setImportProgress(null);
+            alert(err instanceof Error ? err.message : 'Hubo un error al importar.');
+        }
+    };
+
+    const handleDeleteAll = async () => {
+        if (!userId) return;
+        if (!confirm('¿Estás seguro de que deseas borrar TODOS tus movimientos? Esta acción no se puede deshacer.')) return;
+
+        try {
+            const res = await fetch(`/api/transactions?userId=${userId}&id=all`, { method: 'DELETE' });
+            if (res.ok) {
+                onTransactionsUpdated();
+            } else {
+                throw new Error('Failed to delete');
+            }
+        } catch (err) {
+            console.error('Error al borrar todo', err);
+            alert('Hubo un error al borrar los movimientos.');
+        }
     };
 
     return {
@@ -207,6 +324,10 @@ export const useMovementsLogic = (
         allCategories, years, filteredTxs, paginated, totalPages,
         sym, fileInputRef, sidebar,
         // Actions
-        handleExport, handleImport,
+        handleExport, handleImport, handleDeleteAll,
+        // Import modal
+        importDraft, setImportDraft, handleConfirmMapping,
+        importReview, setImportReview,
+        handleConfirmReview, importProgress,
     };
 };

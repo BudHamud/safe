@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { supabaseAdmin } from '../../../lib/supabase-server';
 import { parseBankNotification } from '../../../lib/bankNotificationParser';
-
-const prisma = new PrismaClient();
 
 /**
  * POST /api/parse-notification
@@ -87,14 +85,14 @@ export async function POST(req: NextRequest) {
         };
 
         // ── Deduplicación: Si ya existe la misma notificación en los últimos 60s, devolver esa ──
-        const sixtySecondsAgo = new Date(Date.now() - 60 * 1000);
-        const existing = await prisma.pendingNotification.findFirst({
-            where: {
-                userId,
-                rawText: parsed.rawText,
-                createdAt: { gte: sixtySecondsAgo },
-            },
-        });
+        const sixtySecondsAgo = new Date(Date.now() - 60 * 1000).toISOString();
+        const { data: existing } = await supabaseAdmin
+            .from('PendingNotification')
+            .select('id')
+            .eq('userId', userId)
+            .eq('rawText', parsed.rawText)
+            .gte('createdAt', sixtySecondsAgo)
+            .maybeSingle();
 
         if (existing) {
             console.log(`[BANK NOTIF] Duplicado detectado para ${packageName}, devolviendo existing id=${existing.id}`);
@@ -107,8 +105,9 @@ export async function POST(req: NextRequest) {
         }
 
         // ── Auto-save to Pending table ──
-        const pendingRecord = await prisma.pendingNotification.create({
-            data: {
+        const { data: pendingRecord } = await supabaseAdmin
+            .from('PendingNotification')
+            .insert({
                 userId,
                 bankName: parsed.bankId,
                 merchant: effectiveMerchant,
@@ -117,9 +116,8 @@ export async function POST(req: NextRequest) {
                 type: parsed.type,
                 tag: parsed.tag,
                 rawText: parsed.rawText,
-                transaction: preparedTransaction as any,
-            }
-        });
+                transaction: preparedTransaction,
+            }).select('id').single();
 
         return NextResponse.json({
             parsed: { ...parsed, merchant: effectiveMerchant },
@@ -143,12 +141,13 @@ export async function GET(req: NextRequest) {
 
     if (!userId) return NextResponse.json({ error: 'Falta userId' }, { status: 400 });
 
-    const pending = await prisma.pendingNotification.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' }
-    });
+    const { data: pending } = await supabaseAdmin
+        .from('PendingNotification')
+        .select('*')
+        .eq('userId', userId)
+        .order('createdAt', { ascending: false });
 
-    return NextResponse.json(pending);
+    return NextResponse.json(pending ?? []);
 }
 
 /**
@@ -161,7 +160,7 @@ export async function DELETE(req: NextRequest) {
 
     if (!id) return NextResponse.json({ error: 'Falta id' }, { status: 400 });
 
-    await prisma.pendingNotification.delete({ where: { id } });
+    await supabaseAdmin.from('PendingNotification').delete().eq('id', id);
     return NextResponse.json({ ok: true });
 }
 
@@ -176,15 +175,12 @@ export async function PUT(req: NextRequest) {
             return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
         }
 
-        const saved = await prisma.transaction.create({
-            data: {
-                ...transaction,
-                userId,
-                id: Date.now().toString(),
-            }
-        });
+        const { data: saved } = await supabaseAdmin
+            .from('Transaction')
+            .insert({ ...transaction, userId, id: Date.now().toString() })
+            .select('id').single();
 
-        return NextResponse.json({ ok: true, id: saved.id });
+        return NextResponse.json({ ok: true, id: saved?.id });
     } catch (err: any) {
         return NextResponse.json({ error: err.message }, { status: 500 });
     }

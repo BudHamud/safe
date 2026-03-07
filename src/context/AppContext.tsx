@@ -2,11 +2,29 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Transaction, Category } from "../types";
+import {
+    cacheTransactions,
+    getCachedTransactions,
+    putCachedTransaction,
+    removeCachedTransaction,
+    addPendingOp,
+    getPendingOps,
+    removePendingOp,
+    removePendingCreateForTempId,
+    getPendingOpsCount,
+} from "../lib/db";
+import {
+    WidgetColors,
+    COLOR_PRESETS,
+    buildColorStylesheet,
+    injectColorStylesheet,
+} from "../lib/colorSystem";
 
 type GlobalContextType = {
     isClient: boolean;
     userId: string | null;
     userName: string | null;
+    accessToken: string | null;
     userGoal: number;
     theme: string;
     globalCurrency: 'ILS' | 'USD' | 'ARS' | 'EUR';
@@ -20,9 +38,31 @@ type GlobalContextType = {
     currentBalance: number;
     savingsTarget: number;
 
+    // Offline
+    isOnline: boolean;
+    pendingOpsCount: number;
+    syncNow: () => Promise<{ synced: number; failed: number }>;
+
+    // Colores personalizados (globales)
+    customColors: Record<string, string>;
+    setCustomColor: (variable: string, color: string) => void;
+    resetCustomColors: () => void;
+
+    // Modo personalización interactiva
+    isColorMode: boolean;
+    setIsColorMode: (v: boolean) => void;
+    activeColorZone: string | null;
+    setActiveColorZone: (zone: string | null) => void;
+
+    // Colores por widget zone
+    widgetColors: WidgetColors;
+    setWidgetColor: (zone: string, variable: string, color: string) => void;
+    resetWidgetColors: (zone?: string) => void;
+    applyColorPreset: (presetId: string) => void;
+
     setTheme: (t: string) => void;
     toggleTheme: () => void;
-    handleLogin: (uid: string, un: string) => void;
+    handleLogin: (uid: string, un: string, token?: string) => void;
     handleLogout: () => void;
     handleCurrencyChange: (curr: 'ILS' | 'USD' | 'ARS' | 'EUR') => void;
     toggleTravelMode: () => void;
@@ -45,9 +85,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const [isClient, setIsClient] = useState(false);
     const [userId, setUserId] = useState<string | null>(null);
     const [userName, setUserName] = useState<string | null>(null);
+    const [accessToken, setAccessToken] = useState<string | null>(null);
     const [userGoal, setUserGoal] = useState<number>(3000);
     const [theme, setTheme] = useState("dark");
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [transactions, setTransactions] = useState<Transaction[]>([])
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
     const [globalCurrency, setGlobalCurrency] = useState<'ILS' | 'USD' | 'ARS' | 'EUR'>('ILS');
     const [travelModeStart, setTravelModeStart] = useState<string | null>(null);
@@ -56,8 +97,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const [addModalInitialData, setAddModalInitialData] = useState<Partial<Transaction> | null>(null);
     const savingsTarget = 200;
 
+    // Offline
+    const [isOnline, setIsOnline] = useState(true);
+    const [pendingOpsCount, setPendingOpsCount] = useState(0);
+
+    // Colores personalizados
+    const [customColors, setCustomColorsState] = useState<Record<string, string>>({});
+    const [isColorMode, setIsColorMode] = useState(false);
+    const [activeColorZone, setActiveColorZone] = useState<string | null>(null);
+    const [widgetColors, setWidgetColorsState] = useState<WidgetColors>({});
+
     useEffect(() => {
         setIsClient(true);
+
+        // Online/offline detection
+        setIsOnline(navigator.onLine);
+        const goOnline = () => setIsOnline(true);
+        const goOffline = () => setIsOnline(false);
+        window.addEventListener('online', goOnline);
+        window.addEventListener('offline', goOffline);
+
         const storedTheme = localStorage.getItem("app-theme") || "dark";
         setTheme(storedTheme);
         document.documentElement.setAttribute('data-theme', storedTheme);
@@ -65,12 +124,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const storedCurrency = localStorage.getItem("app-currency") as 'ILS' | 'USD' | 'ARS' | 'EUR';
         if (storedCurrency) setGlobalCurrency(storedCurrency);
 
+        // Colores personalizados + widget overrides
+        try {
+            const storedColors: Record<string, string> = JSON.parse(localStorage.getItem('financeCustomColors') || '{}');
+            const storedWidgetColors: WidgetColors = JSON.parse(localStorage.getItem('financeWidgetColors') || '{}');
+            if (Object.keys(storedColors).length > 0) setCustomColorsState(storedColors);
+            if (Object.keys(storedWidgetColors).length > 0) setWidgetColorsState(storedWidgetColors);
+            const css = buildColorStylesheet(storedColors, storedWidgetColors);
+            if (css) injectColorStylesheet(css);
+        } catch (e) { /* ignorar */ }
+
         const storedUserId = localStorage.getItem("financeUserId");
         const storedUserName = localStorage.getItem("financeUserName");
+        const storedToken = localStorage.getItem("financeAccessToken");
         if (storedUserId && storedUserName) {
             setUserId(storedUserId);
             setUserName(storedUserName);
-            loadUserData(storedUserId);
+            if (storedToken) setAccessToken(storedToken);
+            loadUserData(storedUserId, storedToken);
+            getPendingOpsCount(storedUserId).then(setPendingOpsCount);
         }
 
         const storedTravel = localStorage.getItem('financeTravelModeStart');
@@ -80,12 +152,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         } else {
             document.documentElement.removeAttribute('data-travel');
         }
+
+        return () => {
+            window.removeEventListener('online', goOnline);
+            window.removeEventListener('offline', goOffline);
+        };
     }, []);
 
-    const loadUserData = async (uid: string) => {
-        loadUserTransactions(uid);
+    const loadUserData = async (uid: string, token?: string | null) => {
+        const tok = token ?? accessToken;
+        loadUserTransactions(uid, tok);
         try {
-            const res = await fetch(`/api/user?userId=${uid}`);
+            const res = await fetch(`/api/user`, {
+                headers: tok ? { 'Authorization': `Bearer ${tok}` } : {},
+            });
             if (res.ok) {
                 const data = await res.json();
                 if (data.monthlyGoal) setUserGoal(data.monthlyGoal);
@@ -95,31 +175,59 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const loadUserTransactions = async (uid: string) => {
+    const loadUserTransactions = async (uid: string, token?: string | null) => {
+        const tok = token ?? accessToken;
         try {
-            const res = await fetch(`/api/transactions?userId=${uid}`);
+            const res = await fetch(`/api/transactions`, {
+                headers: tok ? { 'Authorization': `Bearer ${tok}` } : {},
+            });
             if (res.ok) {
                 const data = await res.json();
-                // We keep tags exactly as stored in DB to avoid unexpected merging
                 setTransactions(data);
+                cacheTransactions(uid, data).catch(() => { });
+            } else {
+                const cached = await getCachedTransactions(uid);
+                if (cached.length > 0) setTransactions(cached);
             }
         } catch (e) {
-            console.error(e);
+            console.warn('[Offline] Cargando transacciones desde caché local');
+            const cached = await getCachedTransactions(uid);
+            if (cached.length > 0) setTransactions(cached);
         }
     };
 
     const saveTransaction = async (newTx: Transaction) => {
         if (!userId) return;
+
+        if (!navigator.onLine) {
+            // OFFLINE: guardar localmente con ID temporal
+            const tempId = `offline_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+            const localTx: Transaction = { ...newTx, id: tempId };
+            await putCachedTransaction(userId, localTx);
+            await addPendingOp({ opType: 'create', data: localTx, userId, timestamp: Date.now() });
+            const newCount = await getPendingOpsCount(userId);
+            setPendingOpsCount(newCount);
+            setTransactions(prev => [localTx, ...prev]);
+            setIsAddModalOpen(false);
+            return;
+        }
+
         try {
             const res = await fetch('/api/transactions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                },
                 body: JSON.stringify({ ...newTx, userId })
             });
 
             if (res.ok) {
                 const savedTx = await res.json();
-                setTransactions(prev => [savedTx, ...prev]);
+                if (savedTx) {
+                    await putCachedTransaction(userId, savedTx);
+                    setTransactions(prev => [savedTx, ...prev.filter(Boolean)]);
+                }
                 setIsAddModalOpen(false);
             }
         } catch (e) {
@@ -129,11 +237,34 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     const handleDeleteTransaction = async (txId: string) => {
         if (!userId) return;
+
+        // ID temporal (creado offline): solo borrar localmente y cancelar el create pendiente
+        if (txId.startsWith('offline_')) {
+            await removeCachedTransaction(txId);
+            await removePendingCreateForTempId(txId);
+            const newCount = await getPendingOpsCount(userId);
+            setPendingOpsCount(newCount);
+            setTransactions(prev => prev.filter(t => t.id !== txId));
+            return;
+        }
+
+        if (!navigator.onLine) {
+            // OFFLINE: encolar eliminación
+            await removeCachedTransaction(txId);
+            await addPendingOp({ opType: 'delete', data: { id: txId }, userId, timestamp: Date.now() });
+            const newCount = await getPendingOpsCount(userId);
+            setPendingOpsCount(newCount);
+            setTransactions(prev => prev.filter(t => t.id !== txId));
+            return;
+        }
+
         try {
-            const res = await fetch(`/api/transactions?id=${txId}&userId=${userId}`, {
-                method: 'DELETE'
+            const res = await fetch(`/api/transactions?id=${txId}`, {
+                method: 'DELETE',
+                headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
             });
             if (res.ok) {
+                await removeCachedTransaction(txId);
                 setTransactions(prev => prev.filter(t => t.id !== txId));
             }
         } catch (e) {
@@ -141,21 +272,146 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const handleLogin = (uid: string, un: string) => {
+    /** Sincroniza las operaciones pendientes con el servidor */
+    const syncNow = async (): Promise<{ synced: number; failed: number }> => {
+        if (!userId) return { synced: 0, failed: 0 };
+        const ops = await getPendingOps(userId);
+        let synced = 0;
+        let failed = 0;
+        const idReplacements: Record<string, Transaction> = {};
+        const deletedIds: string[] = [];
+
+        for (const op of ops) {
+            try {
+                if (op.opType === 'create') {
+                    const res = await fetch('/api/transactions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                        },
+                        body: JSON.stringify({ ...op.data, userId }),
+                    });
+                    if (res.ok) {
+                        const serverTx: Transaction = await res.json();
+                        await removeCachedTransaction(op.data.id);
+                        await putCachedTransaction(userId, serverTx);
+                        idReplacements[op.data.id] = serverTx;
+                        await removePendingOp(op.localId!);
+                        synced++;
+                    } else { failed++; }
+                } else if (op.opType === 'delete') {
+                    const res = await fetch(`/api/transactions?id=${op.data.id}`, {
+                        method: 'DELETE',
+                        headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
+                    });
+                    if (res.ok) {
+                        await removeCachedTransaction(op.data.id);
+                        deletedIds.push(op.data.id);
+                        await removePendingOp(op.localId!);
+                        synced++;
+                    } else { failed++; }
+                }
+            } catch (e) { failed++; }
+        }
+
+        setTransactions(prev => {
+            let result = prev.map(t => idReplacements[t.id] ? idReplacements[t.id] : t);
+            result = result.filter(t => !deletedIds.includes(t.id));
+            return result;
+        });
+        const newCount = await getPendingOpsCount(userId);
+        setPendingOpsCount(newCount);
+        return { synced, failed };
+    };
+
+    // ── Color customization ──────────────────────────────────────────────────
+
+    const setCustomColor = (variable: string, color: string) => {
+        const newColors = { ...customColors, [variable]: color };
+        setCustomColorsState(newColors);
+        injectColorStylesheet(buildColorStylesheet(newColors, widgetColors));
+        localStorage.setItem('financeCustomColors', JSON.stringify(newColors));
+    };
+
+    const resetCustomColors = () => {
+        setCustomColorsState({});
+        setWidgetColorsState({});
+        injectColorStylesheet('');
+        localStorage.removeItem('financeCustomColors');
+        localStorage.removeItem('financeWidgetColors');
+        localStorage.removeItem('financeActivePreset');
+    };
+
+    // ── Widget color system ─────────────────────────────────────────────
+
+    const setWidgetColor = (zone: string, variable: string, color: string) => {
+        const newWidgetColors: WidgetColors = {
+            ...widgetColors,
+            [zone]: { ...(widgetColors[zone] || {}), [variable]: color },
+        };
+        setWidgetColorsState(newWidgetColors);
+        injectColorStylesheet(buildColorStylesheet(customColors, newWidgetColors));
+        localStorage.setItem('financeWidgetColors', JSON.stringify(newWidgetColors));
+    };
+
+    const resetWidgetColors = (zone?: string) => {
+        const newWidgetColors: WidgetColors = zone
+            ? Object.fromEntries(Object.entries(widgetColors).filter(([k]) => k !== zone))
+            : {};
+        setWidgetColorsState(newWidgetColors);
+        injectColorStylesheet(buildColorStylesheet(customColors, newWidgetColors));
+        if (Object.keys(newWidgetColors).length > 0) {
+            localStorage.setItem('financeWidgetColors', JSON.stringify(newWidgetColors));
+        } else {
+            localStorage.removeItem('financeWidgetColors');
+        }
+    };
+
+    const applyColorPreset = (presetId: string) => {
+        const preset = COLOR_PRESETS.find(p => p.id === presetId);
+        if (!preset) return;
+        const newColors = preset.colors;
+        const newWidgetColors: WidgetColors = {};
+        setCustomColorsState(newColors);
+        setWidgetColorsState(newWidgetColors);
+        injectColorStylesheet(buildColorStylesheet(newColors, newWidgetColors));
+        localStorage.setItem('financeCustomColors', JSON.stringify(newColors));
+        localStorage.removeItem('financeWidgetColors');
+        localStorage.setItem('financeActivePreset', presetId);
+        // Sync data-theme to avoid CSS selector conflicts
+        const darkPresets = ['organic-dark', 'ocean', 'forest', 'ember', 'purple', 'mono'];
+        const targetTheme = darkPresets.includes(presetId) ? 'dark' : 'light';
+        if (targetTheme !== theme) {
+            setTheme(targetTheme);
+            document.documentElement.setAttribute('data-theme', targetTheme);
+            localStorage.setItem('app-theme', targetTheme);
+        }
+    };
+
+    const handleLogin = (uid: string, un: string, token?: string) => {
         setUserId(uid);
         setUserName(un);
+        if (token) {
+            setAccessToken(token);
+            localStorage.setItem("financeAccessToken", token);
+        }
         localStorage.setItem("financeUserId", uid);
         localStorage.setItem("financeUserName", un);
-        loadUserData(uid);
+        loadUserData(uid, token);
+        getPendingOpsCount(uid).then(setPendingOpsCount);
     };
 
     const handleLogout = () => {
         setUserId(null);
         setUserName(null);
+        setAccessToken(null);
         localStorage.removeItem("financeUserId");
         localStorage.removeItem("financeUserName");
+        localStorage.removeItem("financeAccessToken");
         setTransactions([]);
         setSelectedTransaction(null);
+        setPendingOpsCount(0);
     };
 
     const toggleTheme = () => {
@@ -191,6 +447,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         // 1. Recover categories from transaction history (discovery)
         transactions.forEach(tx => {
+            if (!tx) return; // guard contra nulls
             if (tx.tag) {
                 const label = tx.tag.trim();
                 const up = normalize(label);
@@ -223,7 +480,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
     }, [transactions, catSignal]);
 
-    let mappedTransactions = transactions.map(t => {
+    let mappedTransactions = transactions.filter(Boolean).map(t => {
         let val = t.amount;
         if (globalCurrency === 'USD' && t.amountUSD != null) val = t.amountUSD;
         if (globalCurrency === 'ARS' && t.amountARS != null) val = t.amountARS;
@@ -246,7 +503,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     return (
         <AppContext.Provider value={{
-            isClient, userId, userName, userGoal, theme, setTheme, globalCurrency, transactions, mappedTransactions, selectedTransaction, travelModeStart, allCategories, totalIncome, totalExpense, currentBalance, savingsTarget, toggleTheme, handleLogin, handleLogout, handleCurrencyChange, toggleTravelMode, saveTransaction, handleDeleteTransaction, setSelectedTransaction, loadUserData, loadUserTransactions, setCatSignal, isAddModalOpen, setIsAddModalOpen, addModalInitialData, setAddModalInitialData
+            isClient, userId, userName, accessToken, userGoal, theme, setTheme, globalCurrency,
+            transactions, mappedTransactions, selectedTransaction, travelModeStart,
+            allCategories, totalIncome, totalExpense, currentBalance, savingsTarget,
+            isOnline, pendingOpsCount, syncNow,
+            customColors, setCustomColor, resetCustomColors,
+            isColorMode, setIsColorMode, activeColorZone, setActiveColorZone,
+            widgetColors, setWidgetColor, resetWidgetColors, applyColorPreset,
+            toggleTheme, handleLogin, handleLogout, handleCurrencyChange,
+            toggleTravelMode, saveTransaction, handleDeleteTransaction,
+            setSelectedTransaction, loadUserData, loadUserTransactions, setCatSignal,
+            isAddModalOpen, setIsAddModalOpen, addModalInitialData, setAddModalInitialData
         }}>
             {children}
         </AppContext.Provider>

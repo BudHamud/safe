@@ -6,6 +6,7 @@ import { AuthModal } from "./components/AuthModal";
 import { NewOrderModal } from "./components/NewOrderModal";
 import { TransactionDetailsModal } from "./components/TransactionDetailsModal";
 import { BankNotifToast } from "./components/BankNotifToast";
+import { ColorCustomizerOverlay } from "./components/ColorCustomizerOverlay";
 import { IconShapes } from "./components/Icons";
 import { useAppContext } from "../context/AppContext";
 import { useBankNotifications, PendingBankTransaction } from "../hooks/useBankNotifications";
@@ -210,6 +211,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 panelOpen={notifPanelOpen}
                 onClosePanel={() => setNotifPanelOpen(false)}
             />
+
+            <ColorCustomizerOverlay />
         </div>
     );
 }

@@ -1,16 +1,19 @@
-diff --git a/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java b/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java
-index 5f76609..98c7c34 100644
+]633;E;{   echo "diff --git a/${BASEPATH}/NotificationsListenerPlugin.java b/${BASEPATH}/NotificationsListenerPlugin.java"\x3b   echo "index 5f76609..aaaaaaa 100644"\x3b   diff -u "$ORIG/NotificationsListenerPlugin.java" "$MOD/NotificationsListenerPlugin.java"     | sed "s|^--- .*|--- a/${BASEPATH}/NotificationsListenerPlugin.java|"     | sed "s|^+++ .*|+++ b/${BASEPATH}/NotificationsListenerPlugin.java|"\x3b    echo "diff --git a/${BASEPATH}/NotificationService.java b/${BASEPATH}/NotificationService.java"\x3b   echo "index aaaaaa..bbbbbb 100644"\x3b   diff -u "$ORIG/NotificationService.java" "$MOD/NotificationService.java"     | sed "s|^--- .*|--- a/${BASEPATH}/NotificationService.java|"     | sed "s|^+++ .*|+++ b/${BASEPATH}/NotificationService.java|"\x3b } > "/c/vsc/gastos-app/patches/@posx+capacitor-notifications-listener+5.0.7.patch";2a2d1da1-0f51-46e1-b6cb-10c60ac03e0c]633;Cdiff --git a/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java b/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java
+index 5f76609..aaaaaaa 100644
 --- a/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java
 +++ b/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java
-@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver;
+@@ -6,7 +6,10 @@
  import android.content.Context;
  import android.content.Intent;
  import android.content.IntentFilter;
 +import android.content.ComponentName;
  import android.os.Build;
++import android.os.Handler;
++import android.os.Looper;
  import android.provider.Settings;
  import android.util.Log;
-@@ -24,10 +25,8 @@ import org.json.JSONArray;
+ 
+@@ -24,10 +27,8 @@
  import org.json.JSONException;
  import org.json.JSONObject;
  
@@ -23,27 +26,35 @@ index 5f76609..98c7c34 100644
  public class NotificationsListenerPlugin extends Plugin {
  
      private static final String TAG = NotificationsListenerPlugin.class.getSimpleName();
-@@ -68,6 +67,19 @@ public class NotificationsListenerPlugin extends Plugin {
+@@ -41,6 +42,11 @@
+         attachAppStateListener();
+         persistentStorage = new SimpleStorage(getContext());
+         NotificationService.pluginInstance = this;
++
++        // On app start, proactively simulate the notification-access toggle:
++        // unbind any stale connection, then rebind fresh. This is what the
++        // manual disable/enable in System Settings does, but done in code.
++        triggerRebindCycle("load()");
+     }
+ 
+     @Override
+@@ -68,6 +74,15 @@
          filter.addAction(NotificationService.ACTION_REMOVE);
          notificationReceiver = new NotificationReceiver(getContext(), filter);
          NotificationService.notificationReceiver = notificationReceiver;
 +
-+        // Force Android to re-bind the NotificationListenerService specifically when
-+        // app opens
-+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-+            try {
-+                ComponentName componentName = new ComponentName(getContext(), NotificationService.class);
-+                android.service.notification.NotificationListenerService.requestRebind(componentName);
-+                Log.d(TAG, "Requested rebind for NotificationService");
-+            } catch (Exception e) {
-+                Log.e(TAG, "Error requesting rebind: " + e.getMessage());
-+            }
++        // If the NLS binding is missing (process was killed and rebind hasn't
++        // happened yet), simulate the toggle: unbind → wait 500ms → rebind.
++        // This is equivalent to the manual disable/enable in System Settings.
++        if (!NotificationService.isConnected) {
++            Log.d(TAG, "startListening(): NLS not connected — triggering rebind cycle");
++            triggerRebindCycle("startListening()");
 +        }
 +
          call.resolve();
      }
  
-@@ -86,7 +98,14 @@ public class NotificationsListenerPlugin extends Plugin {
+@@ -86,7 +101,14 @@
      @PluginMethod
      public void isListening(PluginCall call) {
          JSObject ret = new JSObject();
@@ -59,7 +70,7 @@ index 5f76609..98c7c34 100644
          call.resolve(ret);
      }
  
-@@ -137,9 +156,11 @@ public class NotificationsListenerPlugin extends Plugin {
+@@ -137,9 +159,11 @@
      private void attachAppStateListener() {
          bridge.getApp().setStatusChangeListener((isActive) -> {
              NotificationService.webViewActive = isActive;
@@ -73,7 +84,49 @@ index 5f76609..98c7c34 100644
                  restoreFromCache();
              }
          });
-@@ -187,7 +208,8 @@ public class NotificationsListenerPlugin extends Plugin {
+@@ -163,6 +187,41 @@
+         return list;
+     }
+ 
++    /**
++     * Simulates the manual "disable then re-enable" toggle in Notification Access settings.
++     *
++     * requestRebind() alone is ignored by MIUI/HyperOS when the service was killed
++     * (not cleanly unbound). Calling requestUnbind() first marks the binding as
++     * voluntarily released, so the subsequent requestRebind() is always honored.
++     *
++     * The 600ms delay between unbind and rebind gives the system enough time to
++     * process the disconnect before we ask it to reconnect.
++     */
++    private void triggerRebindCycle(String caller) {
++        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return;
++
++        // Step 1: if the service instance is alive, request voluntary unbind
++        if (NotificationService.instance != null) {
++            try {
++                NotificationService.instance.requestUnbind();
++                Log.d(TAG, caller + " triggerRebindCycle: requestUnbind dispatched");
++            } catch (Exception e) {
++                Log.e(TAG, caller + " triggerRebindCycle: requestUnbind failed: " + e.getMessage());
++            }
++        }
++
++        // Step 2: after the system processes the disconnect, request fresh rebind
++        new Handler(Looper.getMainLooper()).postDelayed(() -> {
++            try {
++                ComponentName cn = new ComponentName(getContext(), NotificationService.class);
++                android.service.notification.NotificationListenerService.requestRebind(cn);
++                Log.d(TAG, caller + " triggerRebindCycle: requestRebind dispatched");
++            } catch (Exception e) {
++                Log.e(TAG, caller + " triggerRebindCycle: requestRebind failed: " + e.getMessage());
++            }
++        }, 600);
++    }
++
+     private void persistWhitelist(ArrayList<String> packagesWhitelist) {
+         JSONArray jsonArrayWhitelist = new JSONArray(packagesWhitelist);
+         persistentStorage.set(NotificationService.WHITE_LIST_STORAGE_KEY, jsonArrayWhitelist.toString());
+@@ -187,7 +246,8 @@
          @SuppressLint("UnspecifiedRegisterReceiverFlag")
          private NotificationReceiver(Context context, IntentFilter filter) {
              Log.d(TAG, "NotificationReceiver created");
@@ -83,3 +136,125 @@ index 5f76609..98c7c34 100644
                  context.registerReceiver(this, filter);
              } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                  context.registerReceiver(this, filter, Context.RECEIVER_EXPORTED);
+diff --git a/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationService.java b/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationService.java
+index aaaaaa..bbbbbb 100644
+--- a/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationService.java
++++ b/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationService.java
+@@ -1,6 +1,9 @@
+ package com.capacitor.notifications.listener;
+ 
+ import android.app.Notification;
++import android.app.NotificationChannel;
++import android.app.NotificationManager;
++import android.content.ComponentName;
+ import android.content.Intent;
+ import android.content.SharedPreferences;
+ import android.content.pm.PackageManager;
+@@ -59,6 +62,8 @@
+     public static NotificationsListenerPlugin.NotificationReceiver notificationReceiver;
+     // service connected to the android notification service
+     public static boolean isConnected = false;
++    // self-reference so the Plugin can call instance methods (requestUnbind)
++    public static NotificationService instance = null;
+     // listening started by the web view app
+     public static ArrayList<String> packagesWhitelist = null;
+     public static Plugin pluginInstance;
+@@ -80,6 +85,9 @@
+         uuid = UUID.randomUUID();
+     }
+ 
++    private static final String FOREGROUND_CHANNEL_ID = "gastos_notif_listener";
++    private static final int FOREGROUND_NOTIF_ID = 7642;
++
+     @Override
+     public void onCreate() {
+         super.onCreate();
+@@ -94,7 +102,59 @@
+                 .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                 .build();
+ 
++        // Promote to Foreground Service so the OS (especially Xiaomi/HyperOS)
++        // does not kill this process when the app is swiped from Recents.
++        startForegroundCompat();
++
++        instance = this;
++    }
++
++    private void startForegroundCompat() {
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
++            NotificationChannel channel = new NotificationChannel(
++                    FOREGROUND_CHANNEL_ID,
++                    "Monitor de notificaciones bancarias",
++                    NotificationManager.IMPORTANCE_MIN
++            );
++            channel.setDescription("Detecta transferencias y cobros en segundo plano");
++            channel.setShowBadge(false);
++            channel.setSound(null, null);
++            NotificationManager nm = getSystemService(NotificationManager.class);
++            if (nm != null) nm.createNotificationChannel(channel);
++        }
++
++        Notification.Builder builder;
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
++            builder = new Notification.Builder(this, FOREGROUND_CHANNEL_ID);
++        } else {
++            // noinspection deprecation
++            builder = new Notification.Builder(this);
++        }
++
++        // Use a reliable system drawable for the small icon.
++        // Launcher icons (mipmap) are NOT valid for notification small icons.
++        int iconRes = android.R.drawable.ic_dialog_info;
++        try {
++            int appIcon = getApplicationInfo().icon;
++            if (appIcon != 0) iconRes = appIcon;
++        } catch (Exception ignored) {}
++
++        Notification notif = builder
++                .setContentTitle("Gastos – escuchando notificaciones")
++                .setContentText("Detectando transferencias en segundo plano")
++                .setSmallIcon(iconRes)
++                .setOngoing(true)
++                .build();
+ 
++        // FOREGROUND_SERVICE_TYPE_SPECIAL_USE only exists on API 34+.
++        // Using it on API 29-33 causes a crash with IllegalArgumentException.
++        if (Build.VERSION.SDK_INT >= 34) {
++            startForeground(FOREGROUND_NOTIF_ID, notif,
++                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
++        } else {
++            startForeground(FOREGROUND_NOTIF_ID, notif);
++        }
++        Log.d(TAG, "NotificationService running as Foreground Service");
+     }
+ 
+ 
+@@ -177,12 +237,27 @@
+     @Override
+     public void onListenerDisconnected() {
+         isConnected = false;
+-        Log.d(TAG, "NotificationListenerService disconnected");
++        Log.d(TAG, "NotificationListenerService disconnected — requesting rebind");
++        // This is the canonical place to call requestRebind: the OS fires
++        // onListenerDisconnected when it loses the binding (e.g. after process
++        // death on swipe or reboot). Calling requestRebind here tells Android
++        // to reconnect immediately instead of waiting for the user to toggle
++        // the Notification Access setting.
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
++            try {
++                ComponentName cn = new ComponentName(getApplicationContext(), NotificationService.class);
++                NotificationListenerService.requestRebind(cn);
++                Log.d(TAG, "requestRebind dispatched");
++            } catch (Exception e) {
++                Log.e(TAG, "requestRebind failed: " + e.getMessage());
++            }
++        }
+     }
+ 
+     @Override
+     public void onDestroy() {
+         Log.d(TAG, "NotificationService being destroyed with UUID: " + uuid);
++        instance = null;
+         super.onDestroy();
+     }
+ 

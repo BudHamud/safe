@@ -1,20 +1,15 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '../../../lib/prisma';
+import { supabaseAdmin, requireAuth } from '../../../lib/supabase-server';
 
 export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('userId');
-
-    if (!userId) {
-        return NextResponse.json({ error: 'Falta userId' }, { status: 400 });
-    }
+    const { user, error, status } = await requireAuth(req);
+    if (!user) return NextResponse.json({ error }, { status });
 
     try {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { id: true, username: true, monthlyGoal: true }
-        });
-        return NextResponse.json(user);
+        const { data: profile } = await supabaseAdmin
+            .from('User').select('id, username, monthlyGoal').eq('authId', user.id).maybeSingle();
+        if (!profile) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+        return NextResponse.json(profile);
     } catch (err) {
         console.error(err);
         return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
@@ -22,22 +17,16 @@ export async function GET(req: Request) {
 }
 
 export async function PUT(req: Request) {
+    const { user, error, status } = await requireAuth(req);
+    if (!user) return NextResponse.json({ error }, { status });
+
     try {
-        const { userId, monthlyGoal } = await req.json();
+        const { monthlyGoal } = await req.json();
 
-        if (!userId) {
-            return NextResponse.json({ error: 'Falta userId' }, { status: 400 });
-        }
-
-        const user = await prisma.user.update({
-            where: { id: userId },
-            data: {
-                monthlyGoal: parseFloat(monthlyGoal)
-            },
-            select: { id: true, username: true, monthlyGoal: true }
-        });
-
-        return NextResponse.json(user);
+        const { data: updated } = await supabaseAdmin
+            .from('User').update({ monthlyGoal: parseFloat(monthlyGoal) })
+            .eq('authId', user.id).select('id, username, monthlyGoal').single();
+        return NextResponse.json(updated);
     } catch (err) {
         console.error(err);
         return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });

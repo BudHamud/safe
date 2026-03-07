@@ -3,7 +3,7 @@
 .auth-overlay {
     position: fixed;
     inset: 0;
-    background: #0e100e;
+    background: var(--bg);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -12,8 +12,8 @@
 }
 
 .auth-box {
-    background: #161917;
-    border: 1px solid #2b2e2b;
+    background: var(--surface);
+    border: 1px solid var(--border);
     width: 100%;
     max-width: 320px;
     display: flex;
@@ -27,13 +27,13 @@
     align-items: center;
     gap: 0.6rem;
     padding: 1rem 1.4rem 0.75rem;
-    border-bottom: 1px solid #222522;
+    border-bottom: 1px solid var(--border-dim);
 }
 
 .auth-logo-icon {
     width: 28px;
     height: 28px;
-    background: #5c7152;
+    background: var(--primary);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -43,7 +43,7 @@
 .auth-logo-name {
     font-size: 0.78rem;
     font-weight: 900;
-    color: #e0ddd4;
+    color: var(--text-main);
     letter-spacing: 0.1em;
     text-transform: uppercase;
 }
@@ -60,7 +60,7 @@
 .auth-title {
     font-size: 1.55rem;
     font-weight: 900;
-    color: #e0ddd4;
+    color: var(--text-main);
     letter-spacing: -0.02em;
     line-height: 1;
     margin: 0;
@@ -71,8 +71,8 @@
 .auth-toggle {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    background: #1d201d;
-    border: 1px solid #2b2e2b;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
     padding: 3px;
     gap: 3px;
 }
@@ -89,12 +89,12 @@
     font-family: inherit;
     transition: background 0.15s, color 0.15s;
     background: transparent;
-    color: #737670;
+    color: var(--text-muted);
 }
 
 .auth-toggle-opt.active {
-    background: #5c7152;
-    color: #fff;
+    background: var(--primary);
+    color: var(--primary-text);
 }
 
 /* ── Form fields ── */
@@ -113,7 +113,7 @@
 .auth-label {
     font-size: 0.57rem;
     font-weight: 800;
-    color: #737670;
+    color: var(--text-muted);
     letter-spacing: 0.13em;
     text-transform: uppercase;
 }
@@ -121,7 +121,7 @@
 .auth-forgot {
     font-size: 0.52rem;
     font-weight: 700;
-    color: #5c7152;
+    color: var(--primary);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     cursor: pointer;
@@ -139,9 +139,9 @@
 
 .auth-input {
     width: 100%;
-    background: #1d201d;
-    border: 1px solid #2b2e2b;
-    color: #e0ddd4;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    color: var(--text-main);
     font-family: inherit;
     font-size: 0.9rem;
     font-weight: 600;
@@ -152,7 +152,7 @@
 }
 
 .auth-input:focus {
-    border-color: #5c7152;
+    border-color: var(--primary);
 }
 
 .auth-input--password {
@@ -164,7 +164,7 @@
     right: 0.75rem;
     background: none;
     border: none;
-    color: #737670;
+    color: var(--text-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -174,15 +174,15 @@
 }
 
 .auth-eye-btn:hover {
-    color: #e0ddd4;
+    color: var(--text-main);
 }
 
 /* ── Submit button ── */
 .auth-submit {
     width: 100%;
-    background: #5c7152;
+    background: var(--primary);
     border: none;
-    color: #fff;
+    color: var(--primary-text);
     font-family: inherit;
     font-size: 0.78rem;
     font-weight: 900;
@@ -209,13 +209,13 @@
     align-items: center;
     justify-content: space-between;
     padding: 0.7rem 1.4rem;
-    border-top: 1px solid #1e211e;
+    border-top: 1px solid var(--border-dim);
 }
 
 .auth-footer-version {
     font-size: 0.5rem;
     font-weight: 700;
-    color: #4a4d4a;
+    color: var(--text-muted);
     letter-spacing: 0.12em;
     text-transform: uppercase;
 }
@@ -224,5 +224,5 @@
     display: flex;
     gap: 0.5rem;
     align-items: center;
-    color: #4a4d4a;
+    color: var(--text-muted);
 }

@@ -12,9 +12,29 @@ export const MONTHS = [
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
-export const parseDate = (raw: string): Date => {
-    if (!raw) return new Date(0);
-    const cleaned = raw.toLowerCase().trim();
+/** Converts an Excel serial number (days since 1900-01-01) to a JS Date. */
+const excelSerialToDate = (serial: number): Date => {
+    // Excel epoch: January 1, 1900 (with leap-year bug: serial 60 = Feb 29, 1900, which didn't exist)
+    const epoch = new Date(1899, 11, 30); // Dec 30, 1899
+    epoch.setDate(epoch.getDate() + serial);
+    return epoch;
+};
+
+export const parseDate = (raw: string | number | Date | unknown): Date => {
+    if (!raw && raw !== 0) return new Date(0);
+
+    // Handle JS Date objects (cellDates:true or raw:true with Date cells)
+    if (raw instanceof Date) return isNaN(raw.getTime()) ? new Date(0) : raw;
+
+    // Handle Excel serial numbers (raw:true returns numeric dates)
+    if (typeof raw === 'number') {
+        if (raw > 0 && raw < 2958466) return excelSerialToDate(raw); // valid Excel date range
+        return new Date(0);
+    }
+
+    const s = String(raw);
+    if (!s.trim()) return new Date(0);
+    const cleaned = s.toLowerCase().trim();
     if (cleaned === 'hoy') return new Date();
     if (cleaned === 'ayer') {
         const d = new Date();
@@ -23,8 +43,8 @@ export const parseDate = (raw: string): Date => {
     }
 
     // Try parsing slash or dash formats
-    if (raw.includes('/') || (raw.includes('-') && raw.length <= 10)) {
-        const parts = raw.split(/[/-]/).map(Number);
+    if (s.includes('/') || (s.includes('-') && s.length <= 10)) {
+        const parts = s.split(/[/-]/).map(Number);
         // Detect YYYY/MM/DD or YYYY-MM-DD (first segment > 31 → must be a year)
         if (parts[0] > 31) {
             const [year, month, day] = parts;
@@ -36,7 +56,7 @@ export const parseDate = (raw: string): Date => {
         return new Date(safeYear, month - 1, day);
     }
 
-    const dt = new Date(raw);
+    const dt = new Date(s);
     return isNaN(dt.getTime()) ? new Date(0) : dt;
 };
 
@@ -92,14 +112,57 @@ export const exportToExcel = (rows: Transaction[], filename: string, sym: string
     XLSX.writeFile(wb, filename);
 };
 
-// ─── Import ───────────────────────────────────────────────────────────────────
+// ─── Import (column-mapping types) ───────────────────────────────────────────
+
+export interface ColumnMapping {
+    dateCol: string;
+    descCol: string;
+    debitCol: string;
+    creditCol: string;
+    detailsCol: string;
+    categoryCol: string;
+}
+
+// ─── Import (amount parser) ─────────────────────────────────────────────────
+
+/**
+ * Robustly parses a numeric string that may use comma as thousands separator
+ * (e.g. "1,234.56" → 1234.56) OR comma as decimal separator ("1.234,56" → 1234.56).
+ */
+const parseAmount = (raw: string): number => {
+    if (!raw || !raw.trim()) return 0;
+    const s = raw.trim();
+    // Detect format: does a comma appear before a dot? → comma=thousands, dot=decimal
+    const hasComaThenDot = /,\d+\./.test(s);   // "1,234.56"
+    const hasDotThenComa = /\.\d+,/.test(s);   // "1.234,56" (European)
+    let cleaned = s;
+    if (hasComaThenDot || (!hasDotThenComa && s.includes(',') && s.includes('.'))) {
+        // Comma is thousands separator → remove all commas
+        cleaned = s.replace(/,/g, '');
+    } else if (hasDotThenComa) {
+        // Dot is thousands separator, comma is decimal → remove dots, replace comma with dot
+        cleaned = s.replace(/\./g, '').replace(',', '.');
+    } else if (s.includes(',') && !s.includes('.')) {
+        // Only a comma, no dot → treat as decimal separator (e.g. "1234,56")
+        cleaned = s.replace(',', '.');
+    }
+    // Strip any remaining non-numeric chars except dot and sign
+    cleaned = cleaned.replace(/[^0-9.\-+]/g, '');
+    const val = parseFloat(cleaned);
+    return isNaN(val) ? 0 : val;
+};
+
+// ─── Import (legacy auto-detect) ─────────────────────────────────────────────
 
 /** Resolves an Excel column by trying multiple possible header names. */
 const pickField = (row: Record<string, unknown>, candidates: string[]): string => {
     const keys = Object.keys(row);
     const normalize = (s: string) =>
-        s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const key = keys.find(k => candidates.includes(normalize(k)));
+        s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const key = keys.find(k => {
+        const cleaned = normalize(k);
+        return candidates.includes(cleaned) || candidates.some(c => cleaned.startsWith(c));
+    });
     return key ? String(row[key]) : '';
 };
 
@@ -109,33 +172,180 @@ export interface ImportedRow {
 }
 
 export const parseExcelRow = (row: Record<string, unknown>, fallbackYear: string, lastDate: string): { row: ImportedRow | null; resolvedDate: string } => {
-    const rawMonto = pickField(row, ['monto', 'amount', 'valor', 'precio']);
-    const rawDesc = pickField(row, ['descripcion', 'desc', 'concepto', 'titulo']);
-    const rawCat = pickField(row, ['categoria', 'tag', 'clase']);
-    const rawFecha = pickField(row, ['fecha', 'date', 'dia']);
-    const rawDetails = pickField(row, ['detalles', 'details', 'notas']);
+    // Attempt to pick specific columns based on the user's mapping
+    const rawDate = pickField(row, ['date', 'fecha', 'dia']);
+    const rawTransaction = pickField(row, ['transaction', 'transactio', 'titulo', 'concepto', 'desc', 'descripcion']);
+    const rawDetails = pickField(row, ['details', 'detalle', 'detalles']);
+    const rawReference = pickField(row, ['reference', 'referenc', 'referencia']);
+    const rawDebit = pickField(row, ['debit', 'egreso', 'monto', 'amount', 'valor', 'precio']);
+    const rawCredit = pickField(row, ['credit', 'ingreso']);
 
-    let date = rawFecha.trim();
+    // Ignore Balance in NIS, Value date, To, Additional details
+
+    let date = rawDate.trim();
     if (date.match(/^\d{1,2}[/\-]\d{1,2}$/)) date = `${date}/${fallbackYear}`;
     const resolvedDate = date || lastDate;
 
-    const amtStr = rawMonto.replace(',', '.').replace(/[^0-9.\-+]/g, '');
-    const amount = amtStr ? parseFloat(amtStr.replace('+', '')) : 0;
+    // Evaluate Credit / Debit
+    let amount = 0;
+    let type: 'income' | 'expense' = 'expense';
 
-    // Guard: skip empty rows
-    if (amount === 0 && !rawDesc && !rawCat) return { row: null, resolvedDate };
+    if (rawCredit) {
+        const parsed = parseAmount(rawCredit);
+        if (parsed !== 0) { amount = parsed; type = 'income'; }
+    }
 
-    const type: 'income' | 'expense' = amtStr.includes('+') ? 'income' : 'expense';
+    if (amount === 0 && rawDebit) {
+        const parsed = parseAmount(rawDebit);
+        if (parsed !== 0) { amount = parsed; type = 'expense'; }
+    }
+
+    amount = Math.abs(amount);
+
+    // Evaluate Reference -> Tag / Details
+    let tag = 'custom';
+    let details = rawDetails;
+
+    if (rawReference) {
+        const refClean = rawReference.trim();
+        // Check if exactly 4 digits
+        if (/^\d{4}$/.test(refClean)) {
+            tag = 'tarjetas';
+        } else {
+            // Append to details
+            details = details ? `${details} - Ref: ${refClean}` : `Ref: ${refClean}`;
+        }
+    }
+
+    // Guard: skip empty rows where we don't even have amount or transaction Title
+    if (amount === 0 && !rawTransaction) return { row: null, resolvedDate };
 
     return {
         row: {
-            desc: rawDesc || 'Importado',
-            amount: Math.abs(amount),
-            tag: rawCat || 'custom',
+            desc: rawTransaction || 'Importado',
+            amount,
+            tag: tag || 'custom', // fallback jic
             type,
             date: resolvedDate,
-            details: rawDetails || '',
+            details: details || '',
         },
         resolvedDate,
     };
+};
+
+// ─── Import (user-defined column mapping) ────────────────────────────────────
+
+export const parseExcelRowMapped = (
+    row: Record<string, unknown>,
+    mapping: ColumnMapping,
+    fallbackYear: string,
+    lastDate: string,
+): { row: ImportedRow | null; resolvedDate: string } => {
+    const get = (col: string) => (col ? String(row[col] ?? '').trim() : '');
+
+    // For the date column, pass the raw value (may be a number serial or Date) to parseDate
+    const rawDateVal = mapping.dateCol ? (row[mapping.dateCol] ?? '') : '';
+    const parsedDateObj = parseDate(rawDateVal);
+    let date = parsedDateObj.getTime() === 0
+        ? get(mapping.dateCol)   // fallback: use string as-is if parseDate failed
+        : [
+            String(parsedDateObj.getDate()).padStart(2, '0'),
+            String(parsedDateObj.getMonth() + 1).padStart(2, '0'),
+            parsedDateObj.getFullYear(),
+        ].join('/');
+    if (date.match(/^\d{1,2}[/\-]\d{1,2}$/)) date = `${date}/${fallbackYear}`;
+    const resolvedDate = date || lastDate;
+
+    let amount = 0;
+    let type: 'income' | 'expense' = 'expense';
+
+    const rawCredit = get(mapping.creditCol);
+    if (rawCredit) {
+        const parsed = parseAmount(rawCredit);
+        if (parsed !== 0) { amount = parsed; type = 'income'; }
+    }
+
+    if (amount === 0) {
+        const rawDebit = get(mapping.debitCol);
+        if (rawDebit) {
+            const parsed = parseAmount(rawDebit);
+            if (parsed !== 0) { amount = parsed; type = 'expense'; }
+        }
+    }
+
+    amount = Math.abs(amount);
+
+    const desc = get(mapping.descCol);
+    const details = get(mapping.detailsCol);
+    const tag = get(mapping.categoryCol) || 'custom';
+
+    if (amount === 0 && !desc) return { row: null, resolvedDate };
+
+    return {
+        row: { desc: desc || 'Importado', amount, tag, type, date: resolvedDate, details },
+        resolvedDate,
+    };
+};
+
+// ─── Import Review (month-block reconciliation) ───────────────────────────────
+
+/** Returns a sortable month key like "2024-10" from any supported date value. */
+export const getMonthKey = (raw: string | number | Date | unknown): string => {
+    const d = parseDate(raw);
+    if (d.getTime() === 0) return 'unknown';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+
+export interface MonthBlock {
+    monthKey: string;
+    label: string;
+    excelRows: ImportedRow[];
+    existingTxs: Transaction[];
+    excelIncome: number;
+    excelExpense: number;
+    existingIncome: number;
+    existingExpense: number;
+}
+
+/**
+ * Groups parsed Excel rows by calendar month and cross-references against
+ * the existing transactions already stored in the app.
+ */
+export const buildImportReview = (
+    parsedRows: ImportedRow[],
+    existingTxs: Transaction[],
+): MonthBlock[] => {
+    const excelByMonth = new Map<string, ImportedRow[]>();
+    for (const row of parsedRows) {
+        const key = getMonthKey(row.date);
+        if (!excelByMonth.has(key)) excelByMonth.set(key, []);
+        excelByMonth.get(key)!.push(row);
+    }
+
+    const existingByMonth = new Map<string, Transaction[]>();
+    for (const tx of existingTxs) {
+        const key = getMonthKey(tx.date);
+        if (!existingByMonth.has(key)) existingByMonth.set(key, []);
+        existingByMonth.get(key)!.push(tx);
+    }
+
+    const blocks: MonthBlock[] = [];
+    for (const [monthKey, excelRows] of excelByMonth) {
+        if (monthKey === 'unknown') continue;
+        const existing = existingByMonth.get(monthKey) ?? [];
+        const [year, month] = monthKey.split('-').map(Number);
+
+        blocks.push({
+            monthKey,
+            label: `${MONTHS[month - 1]} ${year}`,
+            excelRows,
+            existingTxs: existing,
+            excelIncome: excelRows.filter(r => r.type === 'income').reduce((s, r) => s + r.amount, 0),
+            excelExpense: excelRows.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0),
+            existingIncome: existing.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
+            existingExpense: existing.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+        });
+    }
+
+    return blocks.sort((a, b) => a.monthKey.localeCompare(b.monthKey));
 };

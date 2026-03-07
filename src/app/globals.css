@@ -249,3 +249,22 @@ input {
 .card-digits-input::placeholder {
   color: #383b38;
 }
+
+/* ── Color customization mode ─────────────────────────────────────────────── */
+/* Hover ring on all color zones when color mode is active */
+.app-color-mode [data-color-zone] {
+  outline: 2px dashed rgba(255, 200, 0, 0.4);
+  outline-offset: 2px;
+  cursor: crosshair;
+  transition: outline-color 0.15s;
+}
+
+.app-color-mode [data-color-zone]:hover {
+  outline-color: rgba(255, 200, 0, 0.8);
+}
+
+/* Active / selected zone highlight */
+.app-color-mode [data-color-zone].zone-active {
+  outline: 2px solid rgba(255, 200, 0, 0.95);
+  box-shadow: 0 0 0 4px rgba(255, 200, 0, 0.15);
+}

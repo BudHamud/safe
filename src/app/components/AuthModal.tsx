@@ -3,7 +3,7 @@ import './AuthModal.css';
 import { Logo } from './Logo';
 
 type AuthModalProps = {
-    onLogin: (userId: string, username: string) => void;
+    onLogin: (userId: string, username: string, token?: string) => void;
 };
 export const AuthModal = ({ onLogin }: AuthModalProps) => {
     const [isRegister, setIsRegister] = useState(false);
@@ -29,7 +29,7 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
                 alert(data.error || 'Error de autenticación');
                 return;
             }
-            onLogin(data.id, data.username);
+            onLogin(data.id, data.username, data.access_token);
         } catch (e) {
             console.error(e);
             alert("Error de conexión al servidor");
@@ -45,7 +45,7 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
                 {/* Logo bar */}
                 <div className="auth-logo-bar">
                     <Logo size={24} loading={isLoading} />
-                    <span className="auth-logo-name">Caja Fuerte</span>
+                    <span className="auth-logo-name">Safed</span>
                 </div>
 
                 {/* Body */}
@@ -139,7 +139,7 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
 
                 {/* Footer */}
                 <div className="auth-footer">
-                    <span className="auth-footer-version">© Sistema Organic v3.0</span>
+                    <span className="auth-footer-version">© Safed v0.1</span>
                     <div className="auth-footer-icons">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />

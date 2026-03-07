@@ -1,17 +1,17 @@
 /* ── ProfileTab.css ───────────────────────────────────────── */
 
-/* Tokens */
+/* Tokens — mapped to global theme variables so presets work */
 :root {
-    --p-bg: #161917;
-    --p-surface: #1d201d;
-    --p-surf2: #232623;
-    --p-border: #2b2e2b;
-    --p-border2: #383b38;
-    --p-text: #e0ddd4;
-    --p-muted: #737670;
-    --p-muted2: #4a4d4a;
-    --p-green: #5c7152;
-    --p-red: #8b4a38;
+    --p-bg: var(--bg, #161917);
+    --p-surface: var(--surface, #1d201d);
+    --p-surf2: var(--surface-alt, #232623);
+    --p-border: var(--border, #2b2e2b);
+    --p-border2: var(--surface-hover, #383b38);
+    --p-text: var(--text-main, #e0ddd4);
+    --p-muted: var(--text-muted, #737670);
+    --p-muted2: var(--border-dim, #4a4d4a);
+    --p-green: var(--primary, #5c7152);
+    --p-red: var(--accent, #8b4a38);
 }
 
 /* ── Wrapper ── */
@@ -962,4 +962,235 @@
     border-radius: 6px;
     text-align: center;
     opacity: 0.7;
+}
+
+/* ── Sync subview ─────────────────────────────────────────── */
+
+.profile-sync-status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+}
+
+.profile-sync-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.profile-sync-dot--on {
+    background: var(--p-green);
+    box-shadow: 0 0 6px var(--p-green);
+}
+
+.profile-sync-dot--off {
+    background: var(--p-red);
+    box-shadow: 0 0 6px var(--p-red);
+}
+
+.profile-sync-status-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--p-text);
+}
+
+.profile-sync-card {
+    background: var(--p-surface);
+    border: 1px solid var(--p-border);
+    padding: 1.5rem 1.3rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.profile-sync-count {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.profile-sync-count-num {
+    font-size: 2.5rem;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    line-height: 1;
+}
+
+.profile-sync-count-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--p-muted);
+}
+
+.profile-sync-all-ok {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--p-green);
+    letter-spacing: 0.04em;
+}
+
+.profile-sync-result {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    padding: 0.65rem 1rem;
+    border: 1px solid var(--p-border2);
+    background: var(--p-surf2);
+    margin-bottom: 0.75rem;
+}
+
+.profile-sync-btn {
+    width: 100%;
+    padding: 0.9rem;
+    background: var(--p-green);
+    border: none;
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: opacity 0.2s;
+    margin-bottom: 0.75rem;
+}
+
+.profile-sync-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.profile-sync-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: profileSpin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes profileSpin {
+    to { transform: rotate(360deg); }
+}
+
+.profile-sync-offline-note {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--p-red);
+    letter-spacing: 0.04em;
+    text-align: center;
+    padding: 0.5rem;
+}
+
+/* ── Colors subview ───────────────────────────────────────── */
+
+.profile-color-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.profile-color-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1.1rem;
+    background: var(--p-surface);
+    border: 1px solid var(--p-border);
+    border-bottom: none;
+}
+
+.profile-color-row:last-child {
+    border-bottom: 1px solid var(--p-border);
+}
+
+.profile-color-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.profile-color-name {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--p-text);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.12rem;
+}
+
+.profile-color-desc {
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: var(--p-muted);
+    letter-spacing: 0.03em;
+    margin-bottom: 0.12rem;
+}
+
+.profile-color-var {
+    font-size: 0.52rem;
+    font-weight: 700;
+    color: var(--p-muted2);
+    font-family: monospace;
+    letter-spacing: 0.02em;
+}
+
+.profile-color-picker-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.profile-color-preview {
+    display: block;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--p-border2);
+    flex-shrink: 0;
+}
+
+.profile-color-input {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--p-border2);
+    border-radius: 6px;
+    background: var(--p-surf2);
+    padding: 2px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.profile-colors-reset-btn {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: transparent;
+    border: 1px solid var(--p-red);
+    color: var(--p-red);
+    font-family: inherit;
+    font-size: 0.65rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.profile-colors-reset-btn:hover {
+    background: var(--p-red);
+    color: #fff;
 }

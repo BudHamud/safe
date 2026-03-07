@@ -24,10 +24,10 @@ export const Sidebar = ({
     const { t } = useLanguage();
 
     return (
-        <aside className="sidebar">
+        <aside className="sidebar" data-color-zone="sidebar">
             <div className="brand">
                 <Logo size={28} />
-                <span className="brand-name">Caja Fuerte</span>
+                <span className="brand-name">Safed</span>
             </div>
 
             <nav className="nav-menu">

@@ -11,16 +11,16 @@ type StatsTabProps = {
 };
 
 // ── Design tokens ──────────────────────────────────────────
-const BG = '#161917';
-const SURFACE = '#1d201d';
-const SURF2 = '#232623';
-const BORDER = '#2b2e2b';
-const BORDER2 = '#383b38';
-const TEXT = '#e0ddd4';
-const MUTED = '#737670';
-const MUTED2 = '#4a4d4a';
-const GREEN = '#5c7152';
-const RED = '#8b4a38';
+const BG = 'var(--bg)';
+const SURFACE = 'var(--surface)';
+const SURF2 = 'var(--surface-alt)';
+const BORDER = 'var(--border)';
+const BORDER2 = 'var(--surface-hover)';
+const TEXT = 'var(--text-main)';
+const MUTED = 'var(--text-muted)';
+const MUTED2 = 'var(--border-dim)';
+const GREEN = 'var(--primary)';
+const RED = 'var(--accent)';
 
 const sectionLabel: React.CSSProperties = {
     fontSize: '0.58rem',
@@ -132,12 +132,12 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
     }, [transactions, prevYear]);
 
     return (
-        <div style={{ paddingBottom: '3rem', position: 'relative', color: TEXT }}>
+        <div data-color-zone="stats" style={{ paddingBottom: '3rem', position: 'relative', color: TEXT }}>
 
             {/* ── TOP BAR ── */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <h1 style={{ fontSize: '1.6rem', fontWeight: 900, color: TEXT, textTransform: 'uppercase', letterSpacing: '-0.02em', lineHeight: 1, margin: 0 }}>
-                    {t('stats.metrics')}
+                    {t('stats.stats')}
                 </h1>
 
                 <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
@@ -163,11 +163,11 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
                         <select
                             value={selectedYear}
                             onChange={e => setSelectedYear(e.target.value)}
-                            style={{ appearance: 'none' as any, background: GREEN, color: '#fff', border: 'none', borderRadius: '4px', padding: '0.45rem 1.5rem 0.45rem 0.85rem', fontWeight: 800, fontSize: '0.68rem', letterSpacing: '0.06em', outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                            style={{ appearance: 'none' as any, background: GREEN, color: 'var(--primary-text)', border: 'none', borderRadius: '4px', padding: '0.45rem 1.5rem 0.45rem 0.85rem', fontWeight: 800, fontSize: '0.68rem', letterSpacing: '0.06em', outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
                         >
                             {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
                         </select>
-                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--primary-text)" strokeWidth="2.5" style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
                             <polyline points="6 9 12 15 18 9" />
                         </svg>
                     </div>
@@ -389,7 +389,7 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
                                                 const diff = ((amount - prev) / prev) * 100;
                                                 const isUp = diff > 0;
                                                 return (
-                                                    <span style={{ color: isUp ? '#8b4a38' : '#5c7152', fontWeight: 900, fontSize: '0.52rem' }}>
+                                                    <span style={{ color: isUp ? 'var(--accent)' : 'var(--primary)', fontWeight: 900, fontSize: '0.52rem' }}>
                                                         {isUp ? '↑' : '↓'} {Math.abs(diff).toFixed(0)}% vs {prevYear}
                                                     </span>
                                                 );

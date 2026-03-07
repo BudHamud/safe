@@ -37,7 +37,7 @@ export function SplashScreen() {
     return (
         <div
             className="fixed inset-0 z-[99999] flex items-center justify-center pointer-events-none transition-opacity duration-500"
-            style={{ backgroundColor: "#141714", opacity: opacity }}
+            style={{ backgroundColor: "var(--bg)", opacity: opacity }}
         >
             <Logo size={120} />
         </div>

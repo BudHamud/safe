@@ -4,6 +4,7 @@ import { Transaction, Category } from "../../types";
 import { formatCurrency } from '../../lib/utils';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAppContext } from '../../context/AppContext';
+import { TranslationKey } from '../../context/LanguageContext';
 import { BankSyncExplainer } from './BankSyncExplainer';
 import { useSubViewHistory } from '../../hooks/useSubViewHistory';
 
@@ -29,11 +30,45 @@ export const ProfileTab = ({
 }: ProfileTabProps) => {
     const { lang, setLang, t } = useLanguage();
     const appContext = useAppContext();
+    const { accessToken } = appContext;
 
     const [name, setName] = useState(userName);
-    const [viewMode, setViewMode] = useState<'menu' | 'categories' | 'notifications' | 'goal' | 'identity'>('menu');
+    const [viewMode, setViewMode] = useState<'menu' | 'categories' | 'notifications' | 'goal' | 'identity' | 'sync' | 'colors'>('menu');
     const [isExplainerOpen, setIsExplainerOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<{ oldTag: string; newTag: string; newIcon: string } | null>(null);
+
+    // Sync
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncResult, setSyncResult] = useState<{ synced: number; failed: number } | null>(null);
+
+    // Colores — lista de variables personalizables
+    const COLOR_VARS: { variable: string; labelKey: TranslationKey; descKey: TranslationKey }[] = [
+        { variable: '--primary', labelKey: 'profile.color_primary', descKey: 'profile.color_primary_desc' },
+        { variable: '--accent', labelKey: 'profile.color_accent', descKey: 'profile.color_accent_desc' },
+        { variable: '--bg', labelKey: 'profile.color_bg', descKey: 'profile.color_bg_desc' },
+        { variable: '--surface', labelKey: 'profile.color_surface', descKey: 'profile.color_surface_desc' },
+        { variable: '--surface-alt', labelKey: 'profile.color_surface_alt', descKey: 'profile.color_surface_alt_desc' },
+        { variable: '--text-main', labelKey: 'profile.color_text', descKey: 'profile.color_text_desc' },
+        { variable: '--text-muted', labelKey: 'profile.color_text_muted', descKey: 'profile.color_text_muted_desc' },
+        { variable: '--border', labelKey: 'profile.color_border', descKey: 'profile.color_border_desc' },
+    ];
+
+    // Leer colores actuales del DOM (puede ser CSS var o inline override)
+    const getCurrentColor = (variable: string): string => {
+        if (appContext.customColors[variable]) return appContext.customColors[variable];
+        if (typeof window !== 'undefined') {
+            return getComputedStyle(document.documentElement).getPropertyValue(variable).trim() || '#888888';
+        }
+        return '#888888';
+    };
+
+    const handleSync = async () => {
+        setIsSyncing(true);
+        setSyncResult(null);
+        const result = await appContext.syncNow();
+        setIsSyncing(false);
+        setSyncResult(result);
+    };
 
     // Android back button: sub-view → profile menu
     useSubViewHistory(
@@ -130,8 +165,11 @@ export const ProfileTab = ({
         try {
             const res = await fetch('/api/categories', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, oldTag: editingCategory.oldTag, newTag: editingCategory.newTag, newIcon: editingCategory.newIcon })
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                },
+                body: JSON.stringify({ oldTag: editingCategory.oldTag, newTag: editingCategory.newTag, newIcon: editingCategory.newIcon })
             });
             if (res.ok) { onCategoryChangeInfo(); onUpdate(); setEditingCategory(null); }
             else alert("Error guardando categoría");
@@ -154,7 +192,10 @@ export const ProfileTab = ({
             localStorage.setItem('financeHiddenCategories', JSON.stringify(hiddenCats));
         }
         try {
-            const res = await fetch(`/api/categories?userId=${userId}&oldTag=${encodeURIComponent(tag)}`, { method: 'DELETE' });
+            const res = await fetch(`/api/categories?oldTag=${encodeURIComponent(tag)}`, {
+                method: 'DELETE',
+                headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
+            });
             if (res.ok) { onCategoryChangeInfo(); onUpdate(); if (editingCategory?.oldTag === tag) setEditingCategory(null); }
         } catch (e) { console.error(e); }
     };
@@ -163,8 +204,11 @@ export const ProfileTab = ({
         try {
             const res = await fetch('/api/user', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, monthlyGoal: parseFloat(newGoal) })
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                },
+                body: JSON.stringify({ monthlyGoal: parseFloat(newGoal) })
             });
             if (res.ok) { onUpdate(); setViewMode('menu'); }
             else alert("Error guardando meta");
@@ -303,7 +347,7 @@ export const ProfileTab = ({
                                             transition: 'all 0.2s',
                                         }}
                                     >🇬🇧 EN</button>
-                                    <span style={{ position: 'absolute', bottom: '-13px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.45rem', fontWeight: 800, color: '#a08030', letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Parcial</span>
+                                    <span style={{ position: 'absolute', bottom: '-13px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.45rem', fontWeight: 800, color: 'var(--accent)', letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Parcial</span>
                                 </div>
                             </div>
                             <span className="profile-card-sub">{lang === 'es' ? 'Español' : 'English'}</span>
@@ -364,6 +408,62 @@ export const ProfileTab = ({
                                 {uniqueCategories.length > 4 && (
                                     <span className="profile-row-cat-more">+{uniqueCategories.length - 4}</span>
                                 )}
+                            </div>
+                        </div>
+                        <div className="profile-row-arrow">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    {/* Sync row */}
+                    <div className="profile-row-item" onClick={() => { setViewMode('sync'); setSyncResult(null); }}>
+                        <div className="profile-row-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="1 4 1 10 7 10" /><polyline points="23 20 23 14 17 14" /><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
+                            </svg>
+                        </div>
+                        <div className="profile-row-content">
+                            <div className="profile-row-sublabel">{t('profile.sync_title')}</div>
+                            <div className="profile-row-value" style={{ fontSize: '0.72rem', fontWeight: 700 }}>
+                                {appContext.isOnline
+                                    ? (appContext.pendingOpsCount > 0
+                                        ? <span style={{ color: 'var(--accent)' }}>⚠ {appContext.pendingOpsCount} {t('profile.sync_pending')}</span>
+                                        : <span style={{ color: 'var(--primary)' }}>✓ {t('profile.sync_none')}</span>)
+                                    : <span style={{ color: 'var(--accent)' }}>✕ {t('profile.sync_status_offline')}</span>
+                                }
+                            </div>
+                        </div>
+                        <div className="profile-row-arrow">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    {/* Colors row */}
+                    <div className="profile-row-item" onClick={() => appContext.setIsColorMode(true)}>
+                        <div className="profile-row-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10" />
+                                <circle cx="12" cy="12" r="3" />
+                                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                            </svg>
+                        </div>
+                        <div className="profile-row-content">
+                            <div className="profile-row-sublabel">{t('profile.colors_title')}</div>
+                            <div className="profile-row-value" style={{ fontSize: '0.72rem', fontWeight: 700, display: 'flex', gap: '4px', alignItems: 'center', marginTop: '2px' }}>
+                                {['--primary', '--accent', '--bg', '--surface'].map(v => (
+                                    <span key={v} style={{
+                                        width: '14px', height: '14px', borderRadius: '3px',
+                                        background: appContext.customColors[v] || `var(${v})`,
+                                        border: '1px solid var(--border)'
+                                    }} />
+                                ))}
+                                {Object.keys(appContext.customColors).length > 0 &&
+                                    <span style={{ fontSize: '0.55rem', color: 'var(--primary)', fontWeight: 800 }}>CUSTOM</span>
+                                }
                             </div>
                         </div>
                         <div className="profile-row-arrow">
@@ -474,8 +574,8 @@ export const ProfileTab = ({
                     <button
                         style={{
                             marginTop: '1rem', padding: '0.6rem', width: '100%',
-                            background: 'transparent', border: '1px solid #333',
-                            borderRadius: '8px', color: '#555', fontSize: '0.6rem',
+                            background: 'transparent', border: '1px solid var(--border-dim)',
+                            borderRadius: '8px', color: 'var(--text-muted)', fontSize: '0.6rem',
                             cursor: 'pointer', fontWeight: 800, textTransform: 'uppercase'
                         }}
                         onClick={() => {
@@ -527,7 +627,7 @@ export const ProfileTab = ({
                     <div style={{ position: 'relative' }}>
                         <div className="profile-subview-label" style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             {t('profile.social_links')}
-                            <span style={{ fontSize: '0.5rem', fontWeight: 900, background: '#2a2a1a', color: '#a08030', border: '1px solid #a08030', borderRadius: '4px', padding: '0.15rem 0.4rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Próximamente</span>
+                            <span style={{ fontSize: '0.5rem', fontWeight: 900, background: 'var(--surface-alt)', color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: '4px', padding: '0.15rem 0.4rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Próximamente</span>
                         </div>
                         <div className="profile-social-list" style={{ opacity: 0.35, pointerEvents: 'none', userSelect: 'none' }}>
                             <div className="profile-social-item">
@@ -555,7 +655,7 @@ export const ProfileTab = ({
                     <div style={{ position: 'relative' }}>
                         <div className="profile-subview-label" style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             {t('profile.linked_devices')}
-                            <span style={{ fontSize: '0.5rem', fontWeight: 900, background: '#2a2a1a', color: '#a08030', border: '1px solid #a08030', borderRadius: '4px', padding: '0.15rem 0.4rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Próximamente</span>
+                            <span style={{ fontSize: '0.5rem', fontWeight: 900, background: 'var(--surface-alt)', color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: '4px', padding: '0.15rem 0.4rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Próximamente</span>
                         </div>
                         <div className="profile-device-list" style={{ opacity: 0.35, pointerEvents: 'none', userSelect: 'none' }}>
                             <div className="profile-device-item">
@@ -604,6 +704,106 @@ export const ProfileTab = ({
                             <button className="profile-goal-save" onClick={saveGoal}>{t('profile.goal_save_btn')}</button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* ── SYNC VIEW ── */}
+            {viewMode === 'sync' && (
+                <div>
+                    <div className="profile-subview-label">{t('profile.sync_subview_title')}</div>
+
+                    {/* Estado de conexión */}
+                    <div className="profile-sync-status-row">
+                        <div className={`profile-sync-dot ${appContext.isOnline ? 'profile-sync-dot--on' : 'profile-sync-dot--off'}`} />
+                        <span className="profile-sync-status-label">
+                            {appContext.isOnline ? t('profile.sync_status_online') : t('profile.sync_status_offline')}
+                        </span>
+                    </div>
+
+                    {/* Contador de pendientes */}
+                    <div className="profile-sync-card">
+                        <div className="profile-sync-count">
+                            <span className="profile-sync-count-num" style={{ color: appContext.pendingOpsCount > 0 ? 'var(--accent)' : 'var(--primary)' }}>
+                                {appContext.pendingOpsCount}
+                            </span>
+                            <span className="profile-sync-count-label">{t('profile.sync_pending')}</span>
+                        </div>
+                        {appContext.pendingOpsCount === 0 && (
+                            <p className="profile-sync-all-ok">✓ {t('profile.sync_none')}</p>
+                        )}
+                    </div>
+
+                    {/* Resultado de última sync */}
+                    {syncResult && (
+                        <div className="profile-sync-result">
+                            <span style={{ color: 'var(--primary)' }}>✓ {syncResult.synced} {t('profile.sync_result_ok')}</span>
+                            {syncResult.failed > 0 && (
+                                <span style={{ color: 'var(--accent)' }}> · ✕ {syncResult.failed} {t('profile.sync_result_fail')}</span>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Botón sincronizar */}
+                    <button
+                        className="profile-sync-btn"
+                        onClick={handleSync}
+                        disabled={isSyncing || !appContext.isOnline || appContext.pendingOpsCount === 0}
+                    >
+                        {isSyncing ? (
+                            <><span className="profile-sync-spinner" /> {t('profile.sync_syncing')}</>
+                        ) : (
+                            <>{t('profile.sync_btn')}</>
+                        )}
+                    </button>
+
+                    {!appContext.isOnline && (
+                        <p className="profile-sync-offline-note">⚠ {t('profile.sync_offline_warn')}</p>
+                    )}
+                </div>
+            )}
+
+            {/* ── COLORS VIEW ── */}
+            {viewMode === 'colors' && (
+                <div>
+                    <div className="profile-subview-label">{t('profile.colors_subview_title')}</div>
+
+                    <div className="profile-color-list">
+                        {COLOR_VARS.map(({ variable, labelKey, descKey }) => (
+                            <div key={variable} className="profile-color-row">
+                                <div className="profile-color-info">
+                                    <div className="profile-color-name">{t(labelKey)}</div>
+                                    <div className="profile-color-desc">{t(descKey)}</div>
+                                    <div className="profile-color-var">{variable}</div>
+                                </div>
+                                <div className="profile-color-picker-wrap">
+                                    <span
+                                        className="profile-color-preview"
+                                        style={{ background: getCurrentColor(variable) }}
+                                    />
+                                    <input
+                                        type="color"
+                                        className="profile-color-input"
+                                        value={appContext.customColors[variable] || '#000000'}
+                                        onChange={e => appContext.setCustomColor(variable, e.target.value)}
+                                        title={`Cambiar ${t(labelKey)}`}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {Object.keys(appContext.customColors).length > 0 && (
+                        <button
+                            className="profile-colors-reset-btn"
+                            onClick={() => {
+                                if (confirm('¿Restaurar todos los colores originales?')) {
+                                    appContext.resetCustomColors();
+                                }
+                            }}
+                        >
+                            ↺ {t('profile.colors_reset')}
+                        </button>
+                    )}
                 </div>
             )}
         </div>

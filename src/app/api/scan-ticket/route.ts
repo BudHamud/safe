@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { supabaseAdmin } from '../../../lib/supabase-server';
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -52,7 +50,8 @@ export async function POST(req: NextRequest) {
         }
 
         // ── Check user role & rate limit ──
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const { data: user } = await supabaseAdmin
+            .from('User').select('id, role').eq('id', userId).maybeSingle();
         if (!user) {
             return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
         }
@@ -62,9 +61,9 @@ export async function POST(req: NextRequest) {
 
         if (!isAdmin) {
             // Check daily usage
-            const usage = await prisma.scanUsage.findUnique({
-                where: { userId_date: { userId, date: todayStr } }
-            });
+            const { data: usage } = await supabaseAdmin
+                .from('ScanUsage').select('count')
+                .eq('userId', userId).eq('date', todayStr).maybeSingle();
 
             const currentCount = usage?.count ?? 0;
 
@@ -141,19 +140,20 @@ export async function POST(req: NextRequest) {
 
         // ── Increment daily scan count (only for non-admin) ──
         if (!isAdmin) {
-            await prisma.scanUsage.upsert({
-                where: { userId_date: { userId, date: todayStr } },
-                update: { count: { increment: 1 } },
-                create: { userId, date: todayStr, count: 1 }
-            });
+            const { data: existingUsage } = await supabaseAdmin
+                .from('ScanUsage').select('id, count').eq('userId', userId).eq('date', todayStr).maybeSingle();
+            if (existingUsage) {
+                await supabaseAdmin.from('ScanUsage').update({ count: existingUsage.count + 1 }).eq('id', existingUsage.id);
+            } else {
+                await supabaseAdmin.from('ScanUsage').insert({ userId, date: todayStr, count: 1 });
+            }
         }
 
         // ── Get remaining scans info ──
         let remaining: number | null = null;
         if (!isAdmin) {
-            const usage = await prisma.scanUsage.findUnique({
-                where: { userId_date: { userId, date: todayStr } }
-            });
+            const { data: usage } = await supabaseAdmin
+                .from('ScanUsage').select('count').eq('userId', userId).eq('date', todayStr).maybeSingle();
             remaining = DAILY_SCAN_LIMIT - (usage?.count ?? 0);
         }
 

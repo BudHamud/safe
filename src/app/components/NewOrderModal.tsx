@@ -244,7 +244,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
 
     return (
         <div className="order-modal-overlay" onClick={onClose}>
-            <div className="order-modal-box" onClick={e => e.stopPropagation()}>
+            <div className="order-modal-box" data-color-zone="modal" onClick={e => e.stopPropagation()}>
                 {/* Header */}
                 <div className="order-modal-header">
                     <span className="order-modal-title">Nueva Orden</span>
@@ -317,13 +317,13 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                     {scanLimitReached ? (
                         <div style={{
                             marginBottom: '1rem', padding: '0.85rem 1rem', borderRadius: '8px',
-                            border: '1.5px dashed #3a2020', background: '#1a1214',
+                            border: '1.5px dashed var(--accent)', background: 'var(--bg)',
                             display: 'flex', alignItems: 'center', gap: '0.65rem'
                         }}>
                             <span style={{ fontSize: '1rem' }}>🚫</span>
                             <div>
-                                <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#8e4a39', letterSpacing: '0.05em' }}>LÍMITE DIARIO ALCANZADO</div>
-                                <div style={{ fontSize: '0.58rem', color: '#6b4040', marginTop: '0.1rem' }}>Vuelve mañana o contacta al administrador</div>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--accent)', letterSpacing: '0.05em' }}>LÍMITE DIARIO ALCANZADO</div>
+                                <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>Vuelve mañana o contacta al administrador</div>
                             </div>
                         </div>
                     ) : (
@@ -346,8 +346,8 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                                     width: '100%',
                                     padding: ticketPreview ? '0.6rem 0.85rem' : '1rem',
                                     borderRadius: '8px',
-                                    border: `1.5px dashed ${dragActive ? '#5d7253' : analyzingImage ? '#5d7253' : '#2b2e2b'}`,
-                                    background: dragActive ? '#1d2a1d' : analyzingImage ? '#1a201a' : '#131713',
+                                    border: `1.5px dashed ${dragActive || analyzingImage ? 'var(--primary)' : 'var(--border)'}`,
+                                    background: dragActive || analyzingImage ? 'var(--surface-alt)' : 'var(--bg)',
                                     cursor: analyzingImage ? 'default' : 'pointer',
                                     transition: 'all 0.2s',
                                     minHeight: ticketPreview ? 'auto' : '70px',
@@ -355,50 +355,50 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                             >
                                 {analyzingImage ? (
                                     <>
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d7253" strokeWidth="2" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }}>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }}>
                                             <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="10" />
                                         </svg>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
-                                            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#5d7253', letterSpacing: '0.06em' }}>ANALIZANDO TICKET...</span>
-                                            <span style={{ fontSize: '0.6rem', color: '#586356' }}>IA está leyendo el comprobante</span>
+                                            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.06em' }}>ANALIZANDO TICKET...</span>
+                                            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>IA está leyendo el comprobante</span>
                                         </div>
                                     </>
                                 ) : ticketPreview ? (
                                     <>
                                         {/* Thumbnail */}
-                                        <img src={ticketPreview} alt="ticket" style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '5px', flexShrink: 0, border: '1px solid #2b2e2b' }} />
+                                        <img src={ticketPreview} alt="ticket" style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '5px', flexShrink: 0, border: '1px solid var(--border)' }} />
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             {scanResult ? (
                                                 <>
-                                                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#5d7253', letterSpacing: '0.05em' }}>✓ TICKET ESCANEADO</div>
-                                                    <div style={{ fontSize: '0.62rem', color: '#8c8c80', marginTop: '0.1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.05em' }}>✓ TICKET ESCANEADO</div>
+                                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginTop: '0.1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                         {scanResult.desc} · {scanResult.confidence}% confianza
                                                     </div>
                                                     {/* Confidence bar */}
-                                                    <div style={{ marginTop: '0.3rem', height: '3px', borderRadius: '2px', background: '#2b2e2b', overflow: 'hidden' }}>
-                                                        <div style={{ width: `${scanResult.confidence}%`, height: '100%', background: scanResult.confidence > 75 ? '#5d7253' : scanResult.confidence > 50 ? '#a16207' : '#8e4a39', transition: 'width 0.5s ease', borderRadius: '2px' }} />
+                                                    <div style={{ marginTop: '0.3rem', height: '3px', borderRadius: '2px', background: 'var(--border)', overflow: 'hidden' }}>
+                                                        <div style={{ width: `${scanResult.confidence}%`, height: '100%', background: scanResult.confidence > 75 ? 'var(--primary)' : 'var(--accent)', transition: 'width 0.5s ease', borderRadius: '2px' }} />
                                                     </div>
                                                     {scanResult.remaining !== null && (
-                                                        <div style={{ fontSize: '0.55rem', color: '#586356', marginTop: '0.2rem' }}>
+                                                        <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                                                             {scanResult.remaining} escaneos restantes hoy
                                                         </div>
                                                     )}
                                                 </>
                                             ) : (
-                                                <span style={{ fontSize: '0.68rem', color: '#737670' }}>Cambiar imagen...</span>
+                                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Cambiar imagen...</span>
                                             )}
                                         </div>
                                         <button
                                             type="button"
                                             onClick={e => { e.preventDefault(); setTicketPreview(null); setScanResult(null); }}
-                                            style={{ background: 'none', border: 'none', color: '#586356', fontSize: '0.75rem', cursor: 'pointer', padding: '0.2rem', flexShrink: 0 }}
+                                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.75rem', cursor: 'pointer', padding: '0.2rem', flexShrink: 0 }}
                                         >
                                             ✕
                                         </button>
                                     </>
                                 ) : (
                                     <>
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#737670" strokeWidth="1.5">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5">
                                             <rect x="3" y="3" width="18" height="18" rx="2" />
                                             <polyline points="3 9 9 9 9 3" />
                                             <polyline points="21 9 15 9 15 3" />
@@ -406,8 +406,8 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                                             <polyline points="3 15 9 15 9 21" />
                                         </svg>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem' }}>
-                                            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#737670', letterSpacing: '0.06em' }}>ESCANEAR TICKET / FACTURA</span>
-                                            <span style={{ fontSize: '0.58rem', color: '#4a4d4a' }}>Arrastra una imagen o haz clic · IA extrae los datos</span>
+                                            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.06em' }}>ESCANEAR TICKET / FACTURA</span>
+                                            <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>Arrastra una imagen o haz clic · IA extrae los datos</span>
                                         </div>
                                     </>
                                 )}
@@ -433,7 +433,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                                     <option value="ILS">ILS</option>
                                     <option value="EUR">EUR</option>
                                 </select>
-                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#737670" strokeWidth="3" style={{ position: 'absolute', right: '0.4rem', pointerEvents: 'none' }}>
+                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="3" style={{ position: 'absolute', right: '0.4rem', pointerEvents: 'none' }}>
                                     <polyline points="6 9 12 15 18 9" />
                                 </svg>
                             </div>
@@ -545,7 +545,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                                             })()
                                             : 'Seleccionar...'}
                                 </span>
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#737670" strokeWidth="2.5">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5">
                                     <polyline points="6 9 12 15 18 9" />
                                 </svg>
                             </button>
@@ -591,8 +591,8 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
 
                         {/* Nueva Categoría UI - Moved here */}
                         {formData.tag === 'custom' && (
-                            <div style={{ marginTop: '1rem', border: '1px dashed #373a37', borderRadius: '8px', padding: '1rem', background: '#232623', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                <span className="order-modal-label" style={{ color: '#5c7152', marginBottom: 0 }}>Configurar Nueva Categoría</span>
+                            <div style={{ marginTop: '1rem', border: '1px dashed var(--border-dim)', borderRadius: '8px', padding: '1rem', background: 'var(--surface-alt)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                <span className="order-modal-label" style={{ color: 'var(--primary)', marginBottom: 0 }}>Configurar Nueva Categoría</span>
                                 <input className="order-modal-input" type="text" name="customTag" value={formData.customTag} onChange={handleInputChange} placeholder="Nombre (Ej. Mascotas, Cripto)" />
                                 <div>
                                     <span className="order-modal-label">Ícono de Categoría</span>
@@ -602,10 +602,10 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                                             value={['💳', '🍔', '🚌', '💡', '🎉', '🛒', '🏥', '🏋️', '✈️', '🐶'].includes(formData.customIcon) ? '' : formData.customIcon}
                                             onChange={e => { let v = e.target.value; if (v.length > 2) v = v.slice(-2); setFormData({ ...formData, customIcon: v || '💳' }); }}
                                             placeholder="+"
-                                            style={{ width: '36px', height: '36px', textAlign: 'center', fontSize: '1.1rem', padding: 0, outline: 'none', cursor: 'text', fontFamily: 'inherit', borderRadius: '6px', border: (!['💳', '🍔', '🚌', '💡', '🎉', '🛒', '🏥', '🏋️', '✈️', '🐶'].includes(formData.customIcon) && formData.customIcon) ? '2px solid #5c7152' : '1px dashed #373a37', background: (!['💳', '🍔', '🚌', '💡', '🎉', '🛒', '🏥', '🏋️', '✈️', '🐶'].includes(formData.customIcon) && formData.customIcon) ? '#5c7152' : 'transparent', color: (!['💳', '🍔', '🚌', '💡', '🎉', '🛒', '🏥', '🏋️', '✈️', '🐶'].includes(formData.customIcon) && formData.customIcon) ? '#fff' : '#e0ddd4' }}
+                                            style={{ width: '36px', height: '36px', textAlign: 'center', fontSize: '1.1rem', padding: 0, outline: 'none', cursor: 'text', fontFamily: 'inherit', borderRadius: '6px', border: (!['💳', '🍔', '🚌', '💡', '🎉', '🛒', '🏥', '🏋️', '✈️', '🐶'].includes(formData.customIcon) && formData.customIcon) ? '2px solid var(--primary)' : '1px dashed var(--border-dim)', background: (!['💳', '🍔', '🚌', '💡', '🎉', '🛒', '🏥', '🏋️', '✈️', '🐶'].includes(formData.customIcon) && formData.customIcon) ? 'var(--primary)' : 'transparent', color: (!['💳', '🍔', '🚌', '💡', '🎉', '🛒', '🏥', '🏋️', '✈️', '🐶'].includes(formData.customIcon) && formData.customIcon) ? 'var(--primary-text)' : 'var(--text-main)' }}
                                         />
                                         {['💳', '🍔', '🚌', '💡', '🎉', '🛒', '🏥', '🏋️', '✈️', '🐶'].map(ic => (
-                                            <div key={ic} onClick={() => setFormData({ ...formData, customIcon: ic })} style={{ width: '36px', height: '36px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '1.1rem', border: formData.customIcon === ic ? '2px solid #5c7152' : '1px solid #2b2e2b', background: formData.customIcon === ic ? '#5c715222' : '#1d201d', transition: 'all 0.15s' }}>
+                                            <div key={ic} onClick={() => setFormData({ ...formData, customIcon: ic })} style={{ width: '36px', height: '36px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '1.1rem', border: formData.customIcon === ic ? '2px solid var(--primary)' : '1px solid var(--border)', background: formData.customIcon === ic ? 'color-mix(in srgb, var(--primary) 13%, transparent)' : 'var(--surface)', transition: 'all 0.15s' }}>
                                                 {ic}
                                             </div>
                                         ))}
@@ -626,7 +626,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                                 onChange={handleInputChange}
                                 style={{ paddingRight: '2.25rem' }}
                             />
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#737670" strokeWidth="2" style={{ position: 'absolute', right: '0.7rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" style={{ position: 'absolute', right: '0.7rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
                                 <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
                             </svg>
                         </div>

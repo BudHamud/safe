@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { supabaseAdmin } from '../../../lib/supabase-server';
 
 /**
  * Placeholder for Bank Notifications Webhook
@@ -21,8 +19,9 @@ export async function POST(request: Request) {
         // Example: Mercado Pago vs Brubank
         console.log(`Received notification from ${bankSource}: ${amount} ${type}`);
 
-        const transaction = await prisma.transaction.create({
-            data: {
+        const { data: transaction } = await supabaseAdmin
+            .from('Transaction')
+            .insert({
                 desc: `[AUTO] ${desc || 'Gasto Bancario'}`,
                 amount: parseFloat(amount),
                 tag: tag || 'otros',
@@ -31,8 +30,7 @@ export async function POST(request: Request) {
                 icon: '🏦',
                 details: `Notificación automática de ${bankSource || 'Banco Vinculado'}`,
                 userId
-            }
-        });
+            }).select().single();
 
         return NextResponse.json(transaction);
     } catch (error) {

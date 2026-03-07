@@ -1,9 +1,9 @@
 .landing-root {
-    --landing-bg: #0d0f0d;
-    --landing-text: #e0e0ce;
-    --landing-accent: #5d7253;
-    --landing-border: #1a1a1a;
-    --landing-muted: #8c8c80;
+    --landing-bg: var(--bg, #0d0f0d);
+    --landing-text: var(--text-main, #e0e0ce);
+    --landing-accent: var(--primary, #5d7253);
+    --landing-border: var(--border-dim, #1a1a1a);
+    --landing-muted: var(--text-muted, #8c8c80);
 
     background-color: var(--landing-bg);
     color: var(--landing-text);
@@ -37,7 +37,7 @@
 }
 
 .landing-lang-toggle {
-    border: 1px solid #222;
+    border: 1px solid var(--landing-border);
     padding: 0.5rem 0.8rem;
     font-size: 0.7rem;
     font-weight: 700;
@@ -91,19 +91,19 @@
     font-weight: 800;
     font-size: 1.1rem;
     border: none;
-    box-shadow: 4px 4px 0px #8e4a39;
+    box-shadow: 4px 4px 0px var(--accent);
     transition: transform 0.1s;
     cursor: pointer;
 }
 
 .landing-cta:active {
     transform: translate(2px, 2px);
-    box-shadow: 2px 2px 0px #8e4a39;
+    box-shadow: 2px 2px 0px var(--accent);
 }
 
 /* Card Preview */
 .landing-card-preview {
-    background: #1a1a1a;
+    background: var(--surface-alt);
     border-radius: 12px;
     aspect-ratio: 1.6 / 1;
     padding: 1.5rem;
@@ -112,7 +112,7 @@
     justify-content: space-between;
     margin-bottom: 3rem;
     position: relative;
-    border: 1px solid #222;
+    border: 1px solid var(--border-dim);
 }
 
 .preview-card-chip {
@@ -146,8 +146,8 @@
 
 /* Privacy */
 .landing-privacy {
-    background: #0d0f0d;
-    border: 1px solid #1a1a1a;
+    background: var(--landing-bg);
+    border: 1px solid var(--landing-border);
     padding: 3rem 1.5rem;
     margin-bottom: 3rem;
 }
@@ -166,7 +166,7 @@
 .privacy-badge .dot {
     width: 6px;
     height: 6px;
-    background: #8e4a39;
+    background: var(--accent);
     border-radius: 50%;
 }
 
@@ -203,8 +203,8 @@
     display: flex;
     gap: 1.5rem;
     align-items: center;
-    background: #111;
-    border: 1px solid #1a1a1a;
+    background: var(--surface);
+    border: 1px solid var(--landing-border);
     padding: 1.8rem 1.5rem;
     margin-bottom: 1.2rem;
 }
@@ -212,11 +212,11 @@
 .feature-icon-box {
     width: 52px;
     height: 52px;
-    background: #0d0d0d;
+    background: var(--bg);
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #222;
+    border: 1px solid var(--border-dim);
     flex-shrink: 0;
 }
 

@@ -1,11 +1,11 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-    appId: 'com.gastoscajafuerte.app',
-    appName: 'CajaFuerte',
+    appId: 'com.gastoscajafuerte.app.dev',
+    appName: 'Safed - Dev',
     webDir: 'public',
     server: {
-        url: 'http://192.168.1.10:3000/app',
+        url: 'http://192.168.68.55:3000/app',
         cleartext: true
     },
     plugins: {

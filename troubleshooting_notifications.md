@@ -94,7 +94,140 @@ The user was instructed to:
 2. **Lock the app** in the Recents menu (padlock icon).
 3. If using Xiaomi/HyperOS, enable **"Autostart"**.
 
-**Result:** Despite these changes, the issue persists. The service dies completely and fails to re-bind gracefully. When the user opens the app, `isListening()` correctly identifies that the permission is technically granted, but the service doesn't actually wake up to intercept new notifications unless manually toggled off and on again in Android Settings.
+**Result:** Despite these changes, the issue persisted. The service died completely and failed to re-bind gracefully. When the user opened the app, `isListening()` correctly identified that the permission was technically granted, but the service didn't actually wake up to intercept new notifications unless manually toggled off and on again in Android Settings.
+
+---
+
+#### 4. Foreground Service + stopWithTask + requestRebind en lugar correcto
+
+**Diagnosis:** Three independent bugs chained together:
+- `android:stopWithTask` was missing → when user swiped the app, Android killed the entire process (app + service together)
+- No Foreground Service → on Xiaomi/HyperOS the OS kills background processes aggressively even with `stopWithTask="false"`
+- `requestRebind()` was in the wrong place (in `startListening()`) instead of `onListenerDisconnected()`, which is the exact callback the OS fires when it loses the binding
+
+**4a. `android:stopWithTask="false"` + `foregroundServiceType` in AndroidManifest:**
+```xml
+<service
+    android:name="com.capacitor.notifications.listener.NotificationService"
+    android:stopWithTask="false"
+    android:foregroundServiceType="specialUse"
+    android:exported="true"
+    android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+    ...
+</service>
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+```
+
+**4b. Foreground Service implementation in `NotificationService.java`:**
+Called `startForeground()` in `onCreate()` so the OS promotes the service to a foreground service with a persistent silent notification. This prevents Xiaomi/HyperOS from killing it.
+```java
+private void startForegroundCompat() {
+    // Create notification channel (API 26+)
+    // ...
+    startForeground(FOREGROUND_NOTIF_ID, notif); // or with TYPE_SPECIAL_USE on API 34+
+}
+```
+
+**4c. `requestRebind()` moved to `onListenerDisconnected()`:**
+```java
+@Override
+public void onListenerDisconnected() {
+    isConnected = false;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        ComponentName cn = new ComponentName(getApplicationContext(), NotificationService.class);
+        NotificationListenerService.requestRebind(cn);
+    }
+}
+```
+
+**Result:** The Foreground Service started (persistent notification appeared in status bar), but the NLS binding still didn't reconnect after swipe. Root cause: a crash was happening on Android 10–13 (see attempt 5).
+
+---
+
+#### 5. Fix Foreground Service crash (API level bug) + BootReceiver
+
+**Diagnosis:** `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` is a constant that only exists on **API 34 (Android 14+)**, but the previous check was `Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q` (API 29). This caused an `IllegalArgumentException` crash on Android 10–13 the moment `startForeground()` was called → the service crashed instantly → Android marked it as a crash-loop and stopped retrying.
+
+**5a. Fix API check for `FOREGROUND_SERVICE_TYPE_SPECIAL_USE`:**
+```java
+// WRONG (crashes Android 10-13):
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+    startForeground(ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+}
+
+// CORRECT:
+if (Build.VERSION.SDK_INT >= 34) {
+    startForeground(ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+} else {
+    startForeground(ID, notif);
+}
+```
+
+**5b. Fix notification small icon:**
+`getApplicationInfo().icon` can return `0` (invalid) for some launcher icons, causing the notification to crash. Changed to use `android.R.drawable.ic_dialog_info` as a safe fallback.
+
+**5c. `requestRebind()` also added to `load()` in the plugin:**
+So it fires even before JS calls `startListening()`.
+
+**5d. Created `BootReceiver.java`:**
+A `BroadcastReceiver` that calls `requestRebind()` on `BOOT_COMPLETED`, `QUICKBOOT_POWERON` (Xiaomi-specific boot event), and `MY_PACKAGE_REPLACED`. Registered in the manifest with `RECEIVE_BOOT_COMPLETED` permission.
+```java
+public class BootReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        ComponentName cn = new ComponentName(context, NotificationService.class);
+        NotificationListenerService.requestRebind(cn);
+    }
+}
+```
+
+**5e. Manifest updates for BootReceiver and API 34+ property:**
+```xml
+<receiver android:name=".BootReceiver" android:exported="false">
+    <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+    </intent-filter>
+</receiver>
+<property
+    android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+    android:value="notification_listener" />
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+```
+
+**Result:** After enabling **Autostart** in Xiaomi settings, the app started working correctly after close/reopen. The earlier attempts may have already been functionally correct but the missing Autostart permission meant Xiaomi was blocking the service from ever starting. Currently: ✅ works after app close + reopen. ❌ not yet tested while app is fully closed (never re-opened).
+
+---
+
+#### 6. Simulate manual toggle: `requestUnbind()` → `requestRebind()` cycle
+
+**Diagnosis:** `requestRebind()` alone is silently ignored by MIUI/HyperOS when the process was killed violently (swipe/reboot), not cleanly unbound. The manual Settings toggle works because: disable = `requestUnbind()` (voluntary), enable = `requestRebind()` (after voluntary unbind). The key insight is that `requestRebind()` is only guaranteed to work to **undo a voluntary `requestUnbind()`**. We need to simulate that cycle in code.
+
+**6a. Static `instance` reference in `NotificationService`:**
+Added `public static NotificationService instance = null;` set in `onCreate()` and cleared in `onDestroy()`, so the Plugin can call `instance.requestUnbind()` at any time.
+
+**6b. `triggerRebindCycle()` method in the Plugin:**
+```java
+private void triggerRebindCycle(String caller) {
+    // Step 1: voluntary unbind (marks the connection as cleanly released)
+    if (NotificationService.instance != null) {
+        NotificationService.instance.requestUnbind();
+    }
+    // Step 2: after 600ms, request fresh rebind (now honored by the OS)
+    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+        ComponentName cn = new ComponentName(getContext(), NotificationService.class);
+        NotificationListenerService.requestRebind(cn);
+    }, 600);
+}
+```
+
+**6c. `triggerRebindCycle()` called from two places:**
+- `load()` — fires as soon as Capacitor loads the plugin (before any JS runs)
+- `startListening()` — fires when JS starts the listener, only if `isConnected == false`
+
+**Result:** Working after close/reopen (confirmed with Autostart enabled). Still pending: testing with app fully closed and never reopened (pure background notification while closed).
 
 ---
 

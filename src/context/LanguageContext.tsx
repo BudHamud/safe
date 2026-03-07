@@ -1,7 +1,13 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { translations, Lang, TranslationKey } from '../i18n/translations';
+import en from '../i18n/en.json';
+import es from '../i18n/es.json';
+
+export type Lang = 'es' | 'en';
+export type TranslationKey = keyof typeof en;
+
+const DICTS: Record<Lang, Record<string, string>> = { en, es };
 
 interface LanguageContextType {
     lang: Lang;
@@ -23,7 +29,7 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
     }, []);
 
     const t = useCallback((key: TranslationKey): string => {
-        return translations[key]?.[lang] ?? translations[key]?.['es'] ?? key;
+        return DICTS[lang]?.[key] ?? DICTS['es']?.[key] ?? key;
     }, [lang]);
 
     return (

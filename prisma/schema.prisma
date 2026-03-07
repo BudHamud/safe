@@ -3,14 +3,16 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
   id           String        @id @default(uuid())
   username     String        @unique
   password     String
+  authId       String?       @unique // Supabase Auth UUID (auth.users.id)
   role         String        @default("user") // "admin" | "user"
   monthlyGoal  Float         @default(3000)
   transactions Transaction[]
