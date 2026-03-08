@@ -28,10 +28,22 @@
    ```
 
 2. **Configure environment variables:**
-   Create a `.env` file in the root directory with your PostgreSQL URL:
+   Create a `.env` file in the root directory with the variables used by the web app:
    ```env
    DATABASE_URL="postgresql://user:password@host:port/dbname"
+   NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+   SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
+
+   # Optional
+   DIRECT_URL="postgresql://user:password@host:port/dbname"
+   GROQ_API_KEY="your-groq-api-key"
    ```
+
+   Notes:
+   - `DATABASE_URL` is required by Prisma.
+   - `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are required by the server-side auth and data routes.
+   - `GROQ_API_KEY` is only required if receipt scanning remains enabled.
+   - `DIRECT_URL` is optional for this app's web deploy, but can be useful for Prisma admin or migration workflows.
 
 3. **Sync the database schema:**
    ```bash
@@ -51,7 +63,12 @@
 
 ### 2. Web (Vercel)
 - Connect your GitHub repository to Vercel.
-- Add the `DATABASE_URL` environment variable.
+- Add these environment variables in Vercel:
+   - `DATABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `GROQ_API_KEY` only if you want receipt scanning enabled in production
+   - `DIRECT_URL` only if your database workflow requires it
 - The build command will automatically run `prisma generate` due to the `postinstall` script.
 
 ### 3. Mobile (Android)
