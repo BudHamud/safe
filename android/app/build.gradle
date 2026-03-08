@@ -1,5 +1,31 @@
 apply plugin: 'com.android.application'
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+def resolveSigningValue = { String key ->
+    def propertyValue = keystoreProperties.getProperty(key)
+    if (propertyValue != null && propertyValue.toString().trim()) {
+        return propertyValue.toString().trim()
+    }
+
+    def envValue = System.getenv(key)
+    if (envValue != null && envValue.toString().trim()) {
+        return envValue.toString().trim()
+    }
+
+    return null
+}
+
+def releaseStoreFile = resolveSigningValue('SAFED_UPLOAD_STORE_FILE')
+def releaseStorePassword = resolveSigningValue('SAFED_UPLOAD_STORE_PASSWORD')
+def releaseKeyAlias = resolveSigningValue('SAFED_UPLOAD_KEY_ALIAS')
+def releaseKeyPassword = resolveSigningValue('SAFED_UPLOAD_KEY_PASSWORD')
+def hasReleaseSigning = [releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword].every { it }
+
 android {
     namespace = "com.gastoscajafuerte.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +42,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

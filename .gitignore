@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/reports
 
 # next.js
 /.next/
@@ -48,5 +49,8 @@ android/build/
 android/.gradle/
 android/.idea/
 android/capacitor-cordova-android-plugins/build/
+android/keystore.properties
+android/*.jks
+android/*.keystore
 *.apk
 *.aab

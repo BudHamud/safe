@@ -1,7 +1,7 @@
 import ClientLayout from "../ClientLayout";
 
 export const metadata = {
-    title: "Caja Fuerte - App",
+    title: "Safed - App",
 };
 
 export default function AppSegmentLayout({ children }: { children: React.ReactNode }) {

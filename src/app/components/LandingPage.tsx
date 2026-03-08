@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { IconShapes } from './Icons';
 import { Logo } from './Logo';
 import { useLanguage } from '../../context/LanguageContext';
@@ -13,42 +14,59 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
     const { t, lang, setLang } = useLanguage();
     // Prevent hydration mismatch: lang comes from localStorage (client-only)
     const [mounted, setMounted] = useState(false);
-    useEffect(() => setMounted(true), []);
+    useEffect(() => {
+        const timeoutId = window.setTimeout(() => setMounted(true), 0);
+
+        return () => window.clearTimeout(timeoutId);
+    }, []);
+
+    const heroLine3 = t('landing.hero_line_3').trim();
 
     return (
         <div className="landing-root">
-            {/* Header */}
             <header className="landing-header">
                 <div className="landing-logo">
                     <Logo size={24} />
-                    <span>CAJA FUERTE</span>
+                    <span>SAFED</span>
                 </div>
-                <button
-                    className="landing-lang-toggle"
-                    onClick={() => setLang(lang === 'es' ? 'en' : 'es')}
-                    suppressHydrationWarning
-                >
-                    {mounted ? (lang === 'es' ? 'ES/EN' : 'EN/ES') : 'ES/EN'}
-                </button>
+                <div className="landing-lang-switcher" suppressHydrationWarning>
+                    <span className="landing-lang-label">{mounted ? t('landing.lang_label') : 'Idioma'}</span>
+                    <div className="landing-lang-toggle" role="group" aria-label={t('landing.lang_toggle_aria')}>
+                        <button
+                            type="button"
+                            className={`landing-lang-option ${mounted && lang === 'es' ? 'is-active' : ''}`}
+                            onClick={() => setLang('es')}
+                            aria-pressed={lang === 'es'}
+                        >
+                            Español
+                        </button>
+                        <button
+                            type="button"
+                            className={`landing-lang-option ${mounted && lang === 'en' ? 'is-active' : ''}`}
+                            onClick={() => setLang('en')}
+                            aria-pressed={lang === 'en'}
+                        >
+                            English
+                        </button>
+                    </div>
+                </div>
             </header>
 
             <main className="landing-container">
-                {/* Hero Section */}
                 <section className="landing-hero">
                     <h1 className="landing-headline">
-                        FINANZAS<br />
-                        <span className="italic-accent">EN PILOTO</span><br />
-                        AUTOMÁTICO
+                        {t('landing.hero_line_1')}<br />
+                        <span className="italic-accent">{t('landing.hero_line_2')}</span>
+                        {heroLine3 ? <><br />{heroLine3}</> : null}
                     </h1>
                     <p className="landing-subheadline">
-                        Sophisticated financial management with organic dark aesthetics.
+                        {t('landing.subheadline')}
                     </p>
                     <button className="landing-cta" onClick={onGetStarted}>
-                        GET STARTED
+                        {t('landing.cta')}
                     </button>
                 </section>
 
-                {/* Card Mockup */}
                 <div className="landing-card-preview">
                     <div className="preview-card-chip"></div>
                     <div className="preview-card-wifi">
@@ -57,33 +75,31 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                         </svg>
                     </div>
                     <div className="preview-card-info">
-                        <div className="preview-card-label">PREMIUM MEMBER</div>
+                        <div className="preview-card-label">{t('landing.card_label')}</div>
                         <div className="preview-card-number">**** **** **** 8824</div>
                     </div>
                 </div>
 
-                {/* Privacy Section */}
                 <section className="landing-privacy">
                     <div className="privacy-badge">
-                        <span className="dot"></span> PRIVACY FIRST
+                        <span className="dot"></span> {t('landing.privacy_badge')}
                     </div>
                     <h2 className="privacy-headline">
-                        NO LEEMOS TUS MENSAJES, SOLO TUS ÉXITOS FINANCIEROS.
+                        {t('landing.privacy_headline')}
                     </h2>
                     <div className="privacy-line"></div>
                 </section>
 
-                {/* Core Features */}
                 <section className="landing-features">
-                    <h3 className="features-section-label">CORE FEATURES</h3>
+                    <h3 className="features-section-label">{t('landing.features_label')}</h3>
 
                     <div className="feature-item">
                         <div className="feature-icon-box">
                             <IconShapes type="card" />
                         </div>
                         <div className="feature-text">
-                            <h4>BANK SYNC</h4>
-                            <p>Real-time updates across all your global accounts.</p>
+                            <h4>{t('landing.feature_sync_title')}</h4>
+                            <p>{t('landing.feature_sync_desc')}</p>
                         </div>
                     </div>
 
@@ -92,8 +108,8 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                             <IconShapes type="plane" />
                         </div>
                         <div className="feature-text">
-                            <h4>TRAVEL MODE</h4>
-                            <p>Zero-fee currency exchange for the modern nomad.</p>
+                            <h4>{t('landing.feature_travel_title')}</h4>
+                            <p>{t('landing.feature_travel_desc')}</p>
                         </div>
                     </div>
 
@@ -102,22 +118,24 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                             <IconShapes type="chart" />
                         </div>
                         <div className="feature-text">
-                            <h4>SMART STATS</h4>
-                            <p>AI-driven insights to maximize your monthly savings.</p>
+                            <h4>{t('landing.feature_stats_title')}</h4>
+                            <p>{t('landing.feature_stats_desc')}</p>
                         </div>
                     </div>
                 </section>
             </main>
 
-            {/* Footer */}
             <footer className="landing-footer">
                 <div className="footer-icons">
                     <button><IconShapes type="plus" /></button>
                     <button>✉️</button>
                     <button>?</button>
                 </div>
+                <div className="footer-links">
+                    <Link href="/privacy" className="footer-link">{t('landing.privacy_policy')}</Link>
+                </div>
                 <div className="footer-copyright">
-                    © 2024 CAJA FUERTE INC. ALL RIGHTS RESERVED.
+                    {t('landing.footer_copy')}
                 </div>
             </footer>
         </div>

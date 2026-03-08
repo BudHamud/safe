@@ -19,8 +19,9 @@ const BORDER2 = 'var(--surface-hover)';
 const TEXT = 'var(--text-main)';
 const MUTED = 'var(--text-muted)';
 const MUTED2 = 'var(--border-dim)';
-const GREEN = 'var(--primary)';
-const RED = 'var(--accent)';
+const STATS_BG = 'var(--w-stats-bg, var(--surface))';
+const GREEN = 'var(--w-stats-primary, var(--primary))';
+const RED = 'var(--w-stats-accent, var(--accent))';
 
 const sectionLabel: React.CSSProperties = {
     fontSize: '0.58rem',
@@ -189,7 +190,7 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
             </div>
 
             {/* ── RESUMEN CARD ── */}
-            <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: '0', padding: '1.4rem 1.5rem', marginBottom: '1.75rem', display: 'flex', flexWrap: 'wrap', gap: '1.25rem', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: STATS_BG, border: `1px solid ${BORDER}`, borderRadius: '0', padding: '1.4rem 1.5rem', marginBottom: '1.75rem', display: 'flex', flexWrap: 'wrap', gap: '1.25rem', alignItems: 'center', justifyContent: 'space-between' }}>
 
                 {/* Balance */}
                 <div style={{ flex: '1 1 180px' }}>
@@ -246,7 +247,7 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
                 <span style={{ width: '7px', height: '7px', background: GREEN, borderRadius: '1px', display: 'inline-block', flexShrink: 0 }} />
                 {t('stats.spending_trend')} ({selectedYear})
             </div>
-            <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: '0', padding: '1.25rem 1.25rem 1rem', marginBottom: '1.75rem', overflowX: 'auto' }}>
+            <div style={{ background: STATS_BG, border: `1px solid ${BORDER}`, borderRadius: '0', padding: '1.25rem 1.25rem 1rem', marginBottom: '1.75rem', overflowX: 'auto' }}>
                 <div style={{ minWidth: '480px', position: 'relative' }}>
 
                     {/* Average line */}
@@ -261,7 +262,7 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
                             <span style={{
                                 position: 'absolute', right: '0', top: '-14px',
                                 fontSize: '0.48rem', fontWeight: 800, color: 'rgba(224,221,212,0.45)',
-                                background: SURFACE, padding: '2px 5px', borderRadius: '4px',
+                                background: STATS_BG, padding: '2px 5px', borderRadius: '4px',
                                 letterSpacing: '0.05em', textTransform: 'uppercase',
                             }}>
                                 {t('stats.avg')} {formatCurrency(avgSpend, sym)}
@@ -281,7 +282,7 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
                             <span style={{
                                 position: 'absolute', left: '0', top: '-14px',
                                 fontSize: '0.5rem', fontWeight: 900, color: RED,
-                                background: SURFACE, padding: '2px 6px', borderRadius: '4px',
+                                background: STATS_BG, padding: '2px 6px', borderRadius: '4px',
                                 letterSpacing: '0.06em', textTransform: 'uppercase',
                                 boxShadow: '0 2px 4px rgba(0,0,0,0.5)'
                             }}>
@@ -315,7 +316,8 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
                                         <div style={{
                                             position: 'absolute', bottom: 0, left: 0, right: 0,
                                             height: `${heightPx}px`,
-                                            background: isSelected ? barColor : `${barColor}cc`,
+                                            background: barColor,
+                                            opacity: isSelected ? 1 : 0.8,
                                             borderRadius: '0',
                                             transition: 'height 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                                         }}>
@@ -341,7 +343,7 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
                 {t('stats.top_cats')} {selectedMonth !== 'ALL' && `(${monthNames[parseInt(selectedMonth) - 1]})`}
             </div>
             {sortedCategories.length === 0 ? (
-                <div style={{ padding: '2.5rem', textAlign: 'center', color: MUTED, fontWeight: 700, fontSize: '0.82rem', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: '0' }}>
+                <div style={{ padding: '2.5rem', textAlign: 'center', color: MUTED, fontWeight: 700, fontSize: '0.82rem', background: STATS_BG, border: `1px solid ${BORDER}`, borderRadius: '0' }}>
                     {t('stats.no_expenses')}
                 </div>
             ) : (
@@ -357,7 +359,7 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
                                 key={cat}
                                 onClick={() => setSelectedCategory(cat)}
                                 style={{
-                                    background: SURFACE,
+                                    background: STATS_BG,
                                     border: `1px solid ${isTop ? BORDER2 : BORDER}`,
                                     borderRadius: '0',
                                     padding: '0.9rem 1.1rem',
@@ -369,7 +371,7 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
                                 onMouseLeave={e => e.currentTarget.style.borderColor = isTop ? BORDER2 : BORDER}
                             >
                                 {/* Vivid bottom progress bar */}
-                                <div style={{ position: 'absolute', bottom: 0, left: 0, height: '3px', width: `${pct}%`, background: idx === 0 ? GREEN : idx === 1 ? `${GREEN}99` : `${GREEN}66`, zIndex: 2, transition: 'width 0.8s ease' }} />
+                                <div style={{ position: 'absolute', bottom: 0, left: 0, height: '3px', width: `${pct}%`, background: GREEN, opacity: idx === 0 ? 1 : idx === 1 ? 0.6 : 0.4, zIndex: 2, transition: 'width 0.8s ease' }} />
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', zIndex: 1 }}>
                                     {/* Icon box */}
@@ -428,7 +430,7 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
                         </div>
                         <button
                             onClick={() => setSelectedCategory(null)}
-                            style={{ background: SURFACE, border: `1px solid ${BORDER2}`, borderRadius: '0', color: TEXT, padding: '0.6rem 1.1rem', fontWeight: 800, fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                            style={{ background: STATS_BG, border: `1px solid ${BORDER2}`, borderRadius: '0', color: TEXT, padding: '0.6rem 1.1rem', fontWeight: 800, fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                         >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                 <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
@@ -442,7 +444,7 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
                         {filteredTransactions.filter(t => t.tag === selectedCategory).map(tx => (
                             <div
                                 key={tx.id}
-                                style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: '0', padding: '0.85rem 1.1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                style={{ background: STATS_BG, border: `1px solid ${BORDER}`, borderRadius: '0', padding: '0.85rem 1.1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                             >
                                 <div>
                                     <div style={{ fontWeight: 800, fontSize: '0.85rem', color: TEXT, textTransform: 'uppercase', letterSpacing: '0.02em' }}>{tx.desc}</div>

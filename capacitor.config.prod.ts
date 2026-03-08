@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'public',
   server: {
     url: 'https://zafe.vercel.app/app',
-    cleartext: true
+    cleartext: false
   },
   plugins: {
     SplashScreen: {

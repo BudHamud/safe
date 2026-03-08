@@ -107,6 +107,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const [activeColorZone, setActiveColorZone] = useState<string | null>(null);
     const [widgetColors, setWidgetColorsState] = useState<WidgetColors>({});
 
+    const clearPersistedSession = () => {
+        setUserId(null);
+        setUserName(null);
+        setAccessToken(null);
+        setTransactions([]);
+        setSelectedTransaction(null);
+        setPendingOpsCount(0);
+        localStorage.removeItem("financeUserId");
+        localStorage.removeItem("financeUserName");
+        localStorage.removeItem("financeAccessToken");
+    };
+
     useEffect(() => {
         setIsClient(true);
 
@@ -137,12 +149,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const storedUserId = localStorage.getItem("financeUserId");
         const storedUserName = localStorage.getItem("financeUserName");
         const storedToken = localStorage.getItem("financeAccessToken");
-        if (storedUserId && storedUserName) {
+        if (storedUserId && storedUserName && storedToken) {
             setUserId(storedUserId);
             setUserName(storedUserName);
-            if (storedToken) setAccessToken(storedToken);
+            setAccessToken(storedToken);
             loadUserData(storedUserId, storedToken);
             getPendingOpsCount(storedUserId).then(setPendingOpsCount);
+        } else if (storedUserId || storedUserName || storedToken) {
+            clearPersistedSession();
         }
 
         const storedTravel = localStorage.getItem('financeTravelModeStart');
@@ -161,11 +175,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     const loadUserData = async (uid: string, token?: string | null) => {
         const tok = token ?? accessToken;
+        if (!tok) return;
         loadUserTransactions(uid, tok);
         try {
             const res = await fetch(`/api/user`, {
                 headers: tok ? { 'Authorization': `Bearer ${tok}` } : {},
             });
+            if (res.status === 401) {
+                clearPersistedSession();
+                return;
+            }
             if (res.ok) {
                 const data = await res.json();
                 if (data.monthlyGoal) setUserGoal(data.monthlyGoal);
@@ -177,10 +196,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     const loadUserTransactions = async (uid: string, token?: string | null) => {
         const tok = token ?? accessToken;
+        if (!tok) return;
         try {
             const res = await fetch(`/api/transactions`, {
                 headers: tok ? { 'Authorization': `Bearer ${tok}` } : {},
             });
+            if (res.status === 401) {
+                clearPersistedSession();
+                return;
+            }
             if (res.ok) {
                 const data = await res.json();
                 setTransactions(data);
@@ -403,15 +427,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const handleLogout = () => {
-        setUserId(null);
-        setUserName(null);
-        setAccessToken(null);
-        localStorage.removeItem("financeUserId");
-        localStorage.removeItem("financeUserName");
-        localStorage.removeItem("financeAccessToken");
-        setTransactions([]);
-        setSelectedTransaction(null);
-        setPendingOpsCount(0);
+        clearPersistedSession();
     };
 
     const toggleTheme = () => {

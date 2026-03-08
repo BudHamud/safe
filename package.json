@@ -11,7 +11,9 @@
     "cap:dev": "cp capacitor.config.dev.ts capacitor.config.ts && npx cap sync android",
     "cap:prod": "cp capacitor.config.prod.ts capacitor.config.ts && npx cap sync android",
     "apk:dev": "cp capacitor.config.dev.ts capacitor.config.ts && npx cap sync android && cd android && gradlew.bat assembleDebug",
-    "apk:prod": "cp capacitor.config.prod.ts capacitor.config.ts && npx cap sync android && cd android && gradlew.bat assembleDebug"
+    "apk:prod": "cp capacitor.config.prod.ts capacitor.config.ts && npx cap sync android && cd android && gradlew.bat assembleRelease",
+    "aab:prod": "cp capacitor.config.prod.ts capacitor.config.ts && npx cap sync android && cd android && gradlew.bat bundleRelease",
+    "aab:verify": "jarsigner -verify -verbose -certs android/app/build/outputs/bundle/release/app-release.aab"
   },
   "dependencies": {
     "@capacitor/android": "^8.1.0",

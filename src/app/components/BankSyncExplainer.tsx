@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface BankSyncExplainerProps {
@@ -112,6 +113,26 @@ export const BankSyncExplainer = ({ isOpen, onClose, onConfirm }: BankSyncExplai
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <div style={{
+                    borderRadius: '16px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-alt)',
+                    padding: '0.95rem 1rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.55rem',
+                }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 900, color: 'var(--text-main)' }}>
+                        {t('bank_explainer.disclosure_title')}
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+                        {t('bank_explainer.disclosure_body')}
+                    </div>
+                    <Link href="/privacy" style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--primary)', textDecoration: 'none' }}>
+                        {t('bank_explainer.privacy_link')}
+                    </Link>
                 </div>
 
                 {/* Footer Actions */}

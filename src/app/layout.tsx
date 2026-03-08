@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"], variable: '--font-inter', display: 'sw
 const outfit = Outfit({ subsets: ["latin"], variable: '--font-outfit', display: 'swap' });
 
 export const metadata = {
-    title: "Caja Fuerte",
+    title: "Safed",
     description: "Gestión de finanzas personales con privacidad radical.",
     icons: {
         icon: '/favicon.svg',

@@ -3,7 +3,7 @@ import React from 'react';
 export const IconShapes = ({ type }: { type: string }) => {
     const svgProps = {
         width: "22", height: "22", viewBox: "0 0 24 24",
-        fill: "none", strokeWidth: "1.8", className: "icon-svg",
+        fill: "none", stroke: "currentColor", strokeWidth: "1.8", className: "icon-svg",
         strokeLinecap: "round" as const, strokeLinejoin: "round" as const
     };
 

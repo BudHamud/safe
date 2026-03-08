@@ -1,4 +1,5 @@
-]633;E;{   echo "diff --git a/${BASEPATH}/NotificationsListenerPlugin.java b/${BASEPATH}/NotificationsListenerPlugin.java"\x3b   echo "index 5f76609..aaaaaaa 100644"\x3b   diff -u "$ORIG/NotificationsListenerPlugin.java" "$MOD/NotificationsListenerPlugin.java"     | sed "s|^--- .*|--- a/${BASEPATH}/NotificationsListenerPlugin.java|"     | sed "s|^+++ .*|+++ b/${BASEPATH}/NotificationsListenerPlugin.java|"\x3b    echo "diff --git a/${BASEPATH}/NotificationService.java b/${BASEPATH}/NotificationService.java"\x3b   echo "index aaaaaa..bbbbbb 100644"\x3b   diff -u "$ORIG/NotificationService.java" "$MOD/NotificationService.java"     | sed "s|^--- .*|--- a/${BASEPATH}/NotificationService.java|"     | sed "s|^+++ .*|+++ b/${BASEPATH}/NotificationService.java|"\x3b } > "/c/vsc/gastos-app/patches/@posx+capacitor-notifications-listener+5.0.7.patch";2a2d1da1-0f51-46e1-b6cb-10c60ac03e0c]633;Cdiff --git a/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java b/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java
+
+diff --git a/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java b/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java
 index 5f76609..aaaaaaa 100644
 --- a/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java
 +++ b/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationsListenerPlugin.java
@@ -25,39 +26,42 @@ index 5f76609..aaaaaaa 100644
 +        @Permission(alias = "notifications", strings = { Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE }) })
  public class NotificationsListenerPlugin extends Plugin {
  
-     private static final String TAG = NotificationsListenerPlugin.class.getSimpleName();
-@@ -41,6 +42,11 @@
-         attachAppStateListener();
-         persistentStorage = new SimpleStorage(getContext());
-         NotificationService.pluginInstance = this;
+      private static final String TAG = NotificationsListenerPlugin.class.getSimpleName();
++    private static final String AGGRESSIVE_REBIND_BOOL = "notification_listener_use_aggressive_rebind";
+ @@ -41,6 +42,11 @@
+           attachAppStateListener();
+           persistentStorage = new SimpleStorage(getContext());
+           NotificationService.pluginInstance = this;
 +
-+        // On app start, proactively simulate the notification-access toggle:
-+        // unbind any stale connection, then rebind fresh. This is what the
-+        // manual disable/enable in System Settings does, but done in code.
-+        triggerRebindCycle("load()");
-     }
++        if (isAggressiveRebindEnabled()) {
++            // On app start, proactively simulate the notification-access toggle:
++            // unbind any stale connection, then rebind fresh. This is what the
++            // manual disable/enable in System Settings does, but done in code.
++            triggerRebindCycle("load()");
++        }
+      }
  
-     @Override
-@@ -68,6 +74,15 @@
-         filter.addAction(NotificationService.ACTION_REMOVE);
-         notificationReceiver = new NotificationReceiver(getContext(), filter);
-         NotificationService.notificationReceiver = notificationReceiver;
+      @Override
+ @@ -68,6 +74,15 @@
+           filter.addAction(NotificationService.ACTION_REMOVE);
+           notificationReceiver = new NotificationReceiver(getContext(), filter);
+           NotificationService.notificationReceiver = notificationReceiver;
 +
 +        // If the NLS binding is missing (process was killed and rebind hasn't
 +        // happened yet), simulate the toggle: unbind → wait 500ms → rebind.
 +        // This is equivalent to the manual disable/enable in System Settings.
-+        if (!NotificationService.isConnected) {
++        if (isAggressiveRebindEnabled() && !NotificationService.isConnected) {
 +            Log.d(TAG, "startListening(): NLS not connected — triggering rebind cycle");
 +            triggerRebindCycle("startListening()");
 +        }
 +
-         call.resolve();
-     }
+           call.resolve();
+      }
  
-@@ -86,7 +101,14 @@
-     @PluginMethod
-     public void isListening(PluginCall call) {
-         JSObject ret = new JSObject();
+ @@ -86,7 +101,14 @@
+      @PluginMethod
+      public void isListening(PluginCall call) {
+           JSObject ret = new JSObject();
 -        ret.put("value", NotificationService.isConnected);
 +        boolean isGranted = false;
 +        String packageName = getContext().getPackageName();
@@ -67,27 +71,35 @@ index 5f76609..aaaaaaa 100644
 +            isGranted = true;
 +        }
 +        ret.put("value", isGranted);
-         call.resolve(ret);
-     }
+           call.resolve(ret);
+      }
  
-@@ -137,9 +159,11 @@
-     private void attachAppStateListener() {
-         bridge.getApp().setStatusChangeListener((isActive) -> {
-             NotificationService.webViewActive = isActive;
+ @@ -137,9 +159,19 @@
+      private void attachAppStateListener() {
+           bridge.getApp().setStatusChangeListener((isActive) -> {
+                NotificationService.webViewActive = isActive;
 -            // Restore cached notifications if the webview is unpaused, but not before webView starts the listener after killing
 +            // Restore cached notifications if the webview is unpaused, but not before
 +            // webView starts the listener after killing
-             // restoreCachedNotifications() called from webview will handle that case.
+                // restoreCachedNotifications() called from webview will handle that case.
 -            if (isActive && NotificationService.cacheEnabled != null && NotificationService.cacheEnabled && NotificationService.notificationReceiver != null) {
 +            if (isActive && NotificationService.cacheEnabled != null && NotificationService.cacheEnabled
 +                    && NotificationService.notificationReceiver != null) {
-                 restoreFromCache();
-             }
-         });
-@@ -163,6 +187,41 @@
-         return list;
-     }
+                     restoreFromCache();
+                }
+           });
+@@ -163,6 +187,49 @@
+           return list;
+      }
  
++    private boolean isAggressiveRebindEnabled() {
++        int resourceId = getContext().getResources().getIdentifier(
++                AGGRESSIVE_REBIND_BOOL,
++                "bool",
++                getContext().getPackageName());
++        return resourceId != 0 && getContext().getResources().getBoolean(resourceId);
++    }
++
 +    /**
 +     * Simulates the manual "disable then re-enable" toggle in Notification Access settings.
 +     *
@@ -123,19 +135,19 @@ index 5f76609..aaaaaaa 100644
 +        }, 600);
 +    }
 +
-     private void persistWhitelist(ArrayList<String> packagesWhitelist) {
-         JSONArray jsonArrayWhitelist = new JSONArray(packagesWhitelist);
-         persistentStorage.set(NotificationService.WHITE_LIST_STORAGE_KEY, jsonArrayWhitelist.toString());
-@@ -187,7 +246,8 @@
-         @SuppressLint("UnspecifiedRegisterReceiverFlag")
-         private NotificationReceiver(Context context, IntentFilter filter) {
-             Log.d(TAG, "NotificationReceiver created");
+      private void persistWhitelist(ArrayList<String> packagesWhitelist) {
+           JSONArray jsonArrayWhitelist = new JSONArray(packagesWhitelist);
+           persistentStorage.set(NotificationService.WHITE_LIST_STORAGE_KEY, jsonArrayWhitelist.toString());
+@@ -187,7 +254,8 @@
+           @SuppressLint("UnspecifiedRegisterReceiverFlag")
+           private NotificationReceiver(Context context, IntentFilter filter) {
+                Log.d(TAG, "NotificationReceiver created");
 -            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
 +            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
 +                    && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                 context.registerReceiver(this, filter);
-             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                 context.registerReceiver(this, filter, Context.RECEIVER_EXPORTED);
+                     context.registerReceiver(this, filter);
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                     context.registerReceiver(this, filter, Context.RECEIVER_EXPORTED);
 diff --git a/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationService.java b/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationService.java
 index aaaaaa..bbbbbb 100644
 --- a/node_modules/@posx/capacitor-notifications-listener/android/src/main/java/com/capacitor/notifications/listener/NotificationService.java
@@ -151,33 +163,44 @@ index aaaaaa..bbbbbb 100644
  import android.content.SharedPreferences;
  import android.content.pm.PackageManager;
 @@ -59,6 +62,8 @@
-     public static NotificationsListenerPlugin.NotificationReceiver notificationReceiver;
-     // service connected to the android notification service
-     public static boolean isConnected = false;
+      public static NotificationsListenerPlugin.NotificationReceiver notificationReceiver;
+      // service connected to the android notification service
+      public static boolean isConnected = false;
 +    // self-reference so the Plugin can call instance methods (requestUnbind)
 +    public static NotificationService instance = null;
-     // listening started by the web view app
-     public static ArrayList<String> packagesWhitelist = null;
-     public static Plugin pluginInstance;
-@@ -80,6 +85,9 @@
-         uuid = UUID.randomUUID();
-     }
+      // listening started by the web view app
+      public static ArrayList<String> packagesWhitelist = null;
+      public static Plugin pluginInstance;
+@@ -80,6 +85,10 @@
+           uuid = UUID.randomUUID();
+      }
  
 +    private static final String FOREGROUND_CHANNEL_ID = "gastos_notif_listener";
 +    private static final int FOREGROUND_NOTIF_ID = 7642;
++    private static final String FOREGROUND_BOOL = "notification_listener_use_foreground_service";
 +
-     @Override
-     public void onCreate() {
-         super.onCreate();
-@@ -94,7 +102,59 @@
-                 .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                 .build();
+      @Override
+      public void onCreate() {
+           super.onCreate();
+@@ -94,7 +103,68 @@
+                     .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                     .build();
  
-+        // Promote to Foreground Service so the OS (especially Xiaomi/HyperOS)
-+        // does not kill this process when the app is swiped from Recents.
-+        startForegroundCompat();
++        if (isForegroundServiceEnabled()) {
++            // Promote to Foreground Service so the OS (especially Xiaomi/HyperOS)
++            // does not kill this process when the app is swiped from Recents.
++            startForegroundCompat();
++        }
 +
 +        instance = this;
++    }
++
++    private boolean isForegroundServiceEnabled() {
++        int resourceId = getResources().getIdentifier(
++                FOREGROUND_BOOL,
++                "bool",
++                getPackageName());
++        return resourceId != 0 && getResources().getBoolean(resourceId);
 +    }
 +
 +    private void startForegroundCompat() {
@@ -216,7 +239,7 @@ index aaaaaa..bbbbbb 100644
 +                .setSmallIcon(iconRes)
 +                .setOngoing(true)
 +                .build();
- 
++
 +        // FOREGROUND_SERVICE_TYPE_SPECIAL_USE only exists on API 34+.
 +        // Using it on API 29-33 causes a crash with IllegalArgumentException.
 +        if (Build.VERSION.SDK_INT >= 34) {
@@ -226,13 +249,13 @@ index aaaaaa..bbbbbb 100644
 +            startForeground(FOREGROUND_NOTIF_ID, notif);
 +        }
 +        Log.d(TAG, "NotificationService running as Foreground Service");
-     }
+      }
  
  
-@@ -177,12 +237,27 @@
-     @Override
-     public void onListenerDisconnected() {
-         isConnected = false;
+@@ -177,12 +247,27 @@
+      @Override
+      public void onListenerDisconnected() {
+           isConnected = false;
 -        Log.d(TAG, "NotificationListenerService disconnected");
 +        Log.d(TAG, "NotificationListenerService disconnected — requesting rebind");
 +        // This is the canonical place to call requestRebind: the OS fires
@@ -249,12 +272,12 @@ index aaaaaa..bbbbbb 100644
 +                Log.e(TAG, "requestRebind failed: " + e.getMessage());
 +            }
 +        }
-     }
+      }
  
-     @Override
-     public void onDestroy() {
-         Log.d(TAG, "NotificationService being destroyed with UUID: " + uuid);
+      @Override
+      public void onDestroy() {
+           Log.d(TAG, "NotificationService being destroyed with UUID: " + uuid);
 +        instance = null;
-         super.onDestroy();
-     }
- 
+           super.onDestroy();
+      }
+

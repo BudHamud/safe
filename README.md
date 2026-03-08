@@ -1,6 +1,6 @@
-# 🏦 CajaFuerte - Financial Management System V2
+# 🏦 Safed - Financial Management System V2
 
-**CajaFuerte** (safe) is a comprehensive expense and income management application designed with a premium, minimalist, and functional aesthetic. It provides total control over your finances with real-time multi-currency support and an optimized user experience for both web and mobile devices (Android).
+**Safed** is a comprehensive expense and income management application designed with a premium, minimalist, and functional aesthetic. It provides total control over your finances with real-time multi-currency support and an optimized user experience for both web and mobile devices (Android).
 
 ## 📊 Key Features
 
@@ -55,14 +55,25 @@
 - The build command will automatically run `prisma generate` due to the `postinstall` script.
 
 ### 3. Mobile (Android)
-- Update the server URL in `capacitor.config.ts` to your Vercel production URL.
+- Use the production config before generating distributable artifacts.
 - Execute:
   ```bash
-  npm run build
-  npx cap sync android
-  npx cap open android
+   npm run build
+   npm run cap:prod
+   npm run aab:prod
   ```
-- In Android Studio, generate your APK from the *Build* menu.
+- For Play Store submission, sign the generated release bundle from Android Studio or your CI signing pipeline.
+
+### 4. Android release signing
+- The Android release build now supports signing from either `android/keystore.properties` or environment variables.
+- Copy `android/keystore.properties.example` to `android/keystore.properties` and fill in your real values, or export these environment variables:
+   - `SAFED_UPLOAD_STORE_FILE`
+   - `SAFED_UPLOAD_STORE_PASSWORD`
+   - `SAFED_UPLOAD_KEY_ALIAS`
+   - `SAFED_UPLOAD_KEY_PASSWORD`
+- If those values are missing, Gradle still builds an unsigned release bundle for validation only.
+- For Play upload, you must provide a real upload key so `app-release.aab` is signed.
+- Full step-by-step release instructions are in `reports/PLAY_RELEASE_STEPS.md`.
 
 ## 🏗️ Project Structure
 

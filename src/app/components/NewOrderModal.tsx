@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './NewOrderModal.css';
 import { Transaction, Category } from "../../types";
 import { useAppContext } from "../../context/AppContext";
+import { useLanguage } from '../../context/LanguageContext';
 
 type NewOrderModalProps = {
     isOpen: boolean;
@@ -14,6 +15,7 @@ type NewOrderModalProps = {
 
 export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, initialData, globalCurrency }: NewOrderModalProps) => {
     const { setCatSignal, userId } = useAppContext();
+    const { lang, t } = useLanguage();
     const [transactionType, setTransactionType] = useState('expense');
     const [goalType, setGoalType] = useState<'unico' | 'mensual' | 'periodo' | 'meta'>('unico');
     const [formData, setFormData] = useState({
@@ -83,6 +85,8 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
     const [scanResult, setScanResult] = useState<{ confidence: number; desc: string; remaining: number | null } | null>(null);
     const [dragActive, setDragActive] = useState(false);
     const [scanLimitReached, setScanLimitReached] = useState(false);
+    const isEditing = !!initialData;
+    const numberLocale = lang === 'en' ? 'en-US' : 'es-AR';
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -120,7 +124,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                 setTicketPreview(null);
                 alert(`${data.error}`);
             } else if (data.error) {
-                alert(`No se pudo leer el ticket: ${data.error}`);
+                alert(`${t('order.scan_read_error_prefix')}: ${data.error}`);
             } else {
                 setFormData(prev => ({
                     ...prev,
@@ -136,7 +140,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
             }
         } catch (err) {
             console.error('scan-ticket error', err);
-            alert('Error al escanear el ticket. Intenta de nuevo.');
+            alert(t('order.scan_error'));
         } finally {
             setAnalyzingImage(false);
         }
@@ -154,7 +158,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
     };
 
     const handleSubmit = async () => {
-        if (!formData.amount) { alert("El Volumen Operativo (Monto) es obligatorio."); return; }
+        if (!formData.amount) { alert(t('order.amount_required')); return; }
         setIsProcessing(true);
 
         let amountUSD = 0, amountARS = 0, amountILS = 0, amountEUR = 0;
@@ -178,12 +182,15 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
             amountARS = amountUSD * arsRate;
 
             if (formData.currency !== 'ILS') {
-                const note = `(Cargado originalmente como ${formData.currency} ${amountInput.toLocaleString('es-AR', { maximumFractionDigits: 2 })})`;
+                const note = t('order.originally_loaded_as', {
+                    currency: formData.currency,
+                    amount: amountInput.toLocaleString(numberLocale, { maximumFractionDigits: 2 })
+                } as any);
                 additionalDetails = additionalDetails ? `${additionalDetails}\n\n*${note}*` : `*${note}*`;
             }
         } catch (error) {
             console.error("Error fetching rates", error);
-            alert("Error al obtener cotizaciones globales. Verifica tu conexión.");
+            alert(t('order.exchange_rate_error'));
             setIsProcessing(false);
             return;
         }
@@ -192,7 +199,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
         let finalIcon = '💳';
 
         if (formData.tag === 'custom') {
-            if (!formData.customTag) { alert("Proporciona un nombre para la nueva clasificación."); setIsProcessing(false); return; }
+            if (!formData.customTag) { alert(t('order.custom_category_name_required')); setIsProcessing(false); return; }
             finalTagLabel = formData.customTag.trim();
             finalIcon = formData.customIcon;
             const newCat: Category = { id: formData.customTag.toLowerCase().replace(/\s+/g, '-'), label: finalTagLabel, icon: finalIcon };
@@ -207,7 +214,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
             const selectedCat = availableCategories.find(c => normalize(c.label) === target);
 
             if (!selectedCat) {
-                alert("Por favor selecciona una clasificación.");
+                alert(t('order.select_category_required'));
                 setIsProcessing(false);
                 return;
             }
@@ -217,7 +224,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
 
         const newTx: Transaction = {
             id: Date.now().toString(),
-            desc: formData.desc || 'Sin título',
+            desc: formData.desc || t('order.untitled'),
             amount: amountILS,
             amountUSD, amountARS, amountILS, amountEUR,
             tag: finalTagLabel,
@@ -247,7 +254,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
             <div className="order-modal-box" data-color-zone="modal" onClick={e => e.stopPropagation()}>
                 {/* Header */}
                 <div className="order-modal-header">
-                    <span className="order-modal-title">Nueva Orden</span>
+                    <span className="order-modal-title">{isEditing ? t('order.edit_title') : t('order.new_title')}</span>
                     <button className="order-modal-close" onClick={onClose}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                             <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -264,13 +271,13 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                             className={`order-modal-toggle-btn ${transactionType === 'expense' ? 'active expense' : ''}`}
                             onClick={() => setTransactionType('expense')}
                         >
-                            EGRESO
+                            {t('order.type_expense')}
                         </button>
                         <button
                             className={`order-modal-toggle-btn ${transactionType === 'income' ? 'active income' : ''}`}
                             onClick={() => setTransactionType('income')}
                         >
-                            INGRESO
+                            {t('order.type_income')}
                         </button>
                     </div>
 
@@ -280,35 +287,35 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                             className={`order-modal-goal-btn ${goalType === 'unico' ? 'active' : ''}`}
                             onClick={() => setGoalType('unico')}
                         >
-                            ÚNICO
+                            {t('order.goal_single')}
                         </button>
                         <button
                             className={`order-modal-goal-btn ${goalType === 'mensual' ? 'active' : ''}`}
                             onClick={() => setGoalType('mensual')}
                         >
-                            MENSUAL
+                            {t('order.goal_monthly')}
                         </button>
                         <button
                             className={`order-modal-goal-btn ${goalType === 'periodo' ? 'active' : ''}`}
                             onClick={() => setGoalType('periodo')}
                         >
-                            PERIODO
+                            {t('order.goal_period')}
                         </button>
                     </div>
 
                     {goalType === 'periodo' && (
                         <div>
-                            <span className="order-modal-label">Frecuencia del Periodo</span>
+                            <span className="order-modal-label">{t('order.period_frequency')}</span>
                             <select
                                 className="order-modal-input"
                                 name="periodicity"
                                 value={formData.periodicity}
                                 onChange={handleInputChange}
                             >
-                                <option value="3">Trimestral (3 meses)</option>
-                                <option value="6">Semestral (6 meses)</option>
-                                <option value="12">Anual (12 meses)</option>
-                                <option value="24">Bianual (24 meses)</option>
+                                <option value="3">{t('order.periodicity_quarterly')}</option>
+                                <option value="6">{t('order.periodicity_biannual')}</option>
+                                <option value="12">{t('order.periodicity_annual')}</option>
+                                <option value="24">{t('order.periodicity_two_years')}</option>
                             </select>
                         </div>
                     )}
@@ -322,8 +329,8 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                         }}>
                             <span style={{ fontSize: '1rem' }}>🚫</span>
                             <div>
-                                <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--accent)', letterSpacing: '0.05em' }}>LÍMITE DIARIO ALCANZADO</div>
-                                <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>Vuelve mañana o contacta al administrador</div>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--accent)', letterSpacing: '0.05em' }}>{t('order.daily_limit_reached')}</div>
+                                <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>{t('order.daily_limit_help')}</div>
                             </div>
                         </div>
                     ) : (
@@ -359,8 +366,8 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                                             <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="10" />
                                         </svg>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
-                                            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.06em' }}>ANALIZANDO TICKET...</span>
-                                            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>IA está leyendo el comprobante</span>
+                                            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.06em' }}>{t('order.scanning_ticket')}</span>
+                                            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{t('order.scanning_ticket_help')}</span>
                                         </div>
                                     </>
                                 ) : ticketPreview ? (
@@ -370,9 +377,9 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             {scanResult ? (
                                                 <>
-                                                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.05em' }}>✓ TICKET ESCANEADO</div>
+                                                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.05em' }}>{t('order.ticket_scanned')}</div>
                                                     <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginTop: '0.1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                        {scanResult.desc} · {scanResult.confidence}% confianza
+                                                        {scanResult.desc} · {scanResult.confidence}% {t('order.confidence')}
                                                     </div>
                                                     {/* Confidence bar */}
                                                     <div style={{ marginTop: '0.3rem', height: '3px', borderRadius: '2px', background: 'var(--border)', overflow: 'hidden' }}>
@@ -380,12 +387,12 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                                                     </div>
                                                     {scanResult.remaining !== null && (
                                                         <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                                                            {scanResult.remaining} escaneos restantes hoy
+                                                            {t('order.remaining_scans_today', { count: scanResult.remaining } as any)}
                                                         </div>
                                                     )}
                                                 </>
                                             ) : (
-                                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Cambiar imagen...</span>
+                                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{t('order.change_image')}</span>
                                             )}
                                         </div>
                                         <button
@@ -406,8 +413,8 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                                             <polyline points="3 15 9 15 9 21" />
                                         </svg>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem' }}>
-                                            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.06em' }}>ESCANEAR TICKET / FACTURA</span>
-                                            <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>Arrastra una imagen o haz clic · IA extrae los datos</span>
+                                            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.06em' }}>{t('order.scan_ticket_invoice')}</span>
+                                            <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>{t('order.scan_ticket_invoice_help')}</span>
                                         </div>
                                     </>
                                 )}
@@ -418,7 +425,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                     {/* Volumen Operativo */}
                     <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                            <span className="order-modal-label">Volumen Operativo *</span>
+                            <span className="order-modal-label">{t('order.amount_label')}</span>
                         </div>
                         <div className="order-modal-amount-group">
                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -451,25 +458,25 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
 
                     {/* Título */}
                     <div>
-                        <label className="order-modal-label">Título *</label>
-                        <input className="order-modal-input" type="text" name="desc" value={formData.desc} onChange={handleInputChange} placeholder="Ej. Súper, Cripto" />
+                        <label className="order-modal-label">{t('order.title_label')}</label>
+                        <input className="order-modal-input" type="text" name="desc" value={formData.desc} onChange={handleInputChange} placeholder={t('order.title_placeholder')} />
                     </div>
 
                     {/* Medio de Pago */}
                     <div>
-                        <label className="order-modal-label">Medio de Pago (Opcional)</label>
+                        <label className="order-modal-label">{t('order.payment_method_optional')}</label>
                         <div className="order-modal-methods-group">
                             <button
                                 className={`order-modal-method-btn ${formData.paymentMethod === 'billete' ? 'active' : ''}`}
                                 onClick={() => setFormData({ ...formData, paymentMethod: formData.paymentMethod === 'billete' ? '' : 'billete', cardDigits: '' })}
                             >
-                                💵 EFECTIVO
+                                💵 {t('order.payment_cash')}
                             </button>
                             <button
                                 className={`order-modal-method-btn ${formData.paymentMethod === 'tarjeta' ? 'active' : ''}`}
                                 onClick={() => setFormData({ ...formData, paymentMethod: formData.paymentMethod === 'tarjeta' ? '' : 'tarjeta' })}
                             >
-                                💳 TARJETA
+                                💳 {t('order.payment_card')}
                             </button>
                         </div>
 
@@ -501,8 +508,8 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
 
                     {/* Descripción */}
                     <div>
-                        <label className="order-modal-label">Descripción (Opcional)</label>
-                        <textarea className="order-modal-input" name="details" value={formData.details} onChange={handleInputChange} placeholder="Notas o detalles..." rows={3} style={{ resize: 'vertical', minHeight: '70px', lineHeight: 1.55 }} />
+                        <label className="order-modal-label">{t('order.description_optional')}</label>
+                        <textarea className="order-modal-input" name="details" value={formData.details} onChange={handleInputChange} placeholder={t('order.description_placeholder')} rows={3} style={{ resize: 'vertical', minHeight: '70px', lineHeight: 1.55 }} />
                     </div>
 
                     {/* Excluir de la meta */}
@@ -516,7 +523,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                                 onChange={e => setFormData({ ...formData, excludeFromBudget: e.target.checked })}
                             />
                             <span className="order-modal-checkbox-label">
-                                Excluir de la meta (gasto fijo)
+                                {t('order.exclude_from_goal')}
                             </span>
                         </label>
                     )}
@@ -525,7 +532,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
 
                     {/* Clasificación */}
                     <div className="order-modal-cat-wrap">
-                        <label className="order-modal-label">Clasificación *</label>
+                        <label className="order-modal-label">{t('order.category_label')}</label>
                         <div className="order-modal-cat-dropdown">
                             {/* Trigger button — shows selected or placeholder */}
                             <button
@@ -535,7 +542,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                             >
                                 <span>
                                     {formData.tag === 'custom'
-                                        ? '＋ Nueva categoría'
+                                        ? `＋ ${t('order.new_category')}`
                                         : formData.tag
                                             ? (() => {
                                                 const normalize = (s: string) => s.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -543,7 +550,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                                                 const found = availableCategories.find(c => normalize(c.label) === target);
                                                 return found ? `${found.icon} ${found.label}` : formData.tag;
                                             })()
-                                            : 'Seleccionar...'}
+                                            : t('order.select_placeholder')}
                                 </span>
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5">
                                     <polyline points="6 9 12 15 18 9" />
@@ -556,7 +563,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                                     <input
                                         className="order-modal-cat-panel-search"
                                         type="text"
-                                        placeholder="Buscar..."
+                                        placeholder={t('movements.search')}
                                         value={catSearch}
                                         onChange={e => setCatSearch(e.target.value)}
                                         autoFocus
@@ -582,7 +589,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                                             onClick={() => { setFormData({ ...formData, tag: 'custom' }); setCatSearch(null); }}
                                         >
                                             <span>＋</span>
-                                            <span>Nueva categoría...</span>
+                                            <span>{t('order.new_category_ellipsis')}</span>
                                         </button>
                                     </div>
                                 </div>
@@ -592,10 +599,10 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                         {/* Nueva Categoría UI - Moved here */}
                         {formData.tag === 'custom' && (
                             <div style={{ marginTop: '1rem', border: '1px dashed var(--border-dim)', borderRadius: '8px', padding: '1rem', background: 'var(--surface-alt)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                <span className="order-modal-label" style={{ color: 'var(--primary)', marginBottom: 0 }}>Configurar Nueva Categoría</span>
-                                <input className="order-modal-input" type="text" name="customTag" value={formData.customTag} onChange={handleInputChange} placeholder="Nombre (Ej. Mascotas, Cripto)" />
+                                <span className="order-modal-label" style={{ color: 'var(--primary)', marginBottom: 0 }}>{t('order.configure_new_category')}</span>
+                                <input className="order-modal-input" type="text" name="customTag" value={formData.customTag} onChange={handleInputChange} placeholder={t('order.custom_category_name_placeholder')} />
                                 <div>
-                                    <span className="order-modal-label">Ícono de Categoría</span>
+                                    <span className="order-modal-label">{t('order.category_icon')}</span>
                                     <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                                         <input
                                             type="text"
@@ -616,7 +623,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                     </div>
                     {/* Período */}
                     <div>
-                        <label className="order-modal-label">Período</label>
+                        <label className="order-modal-label">{t('field.date')}</label>
                         <div style={{ position: 'relative' }}>
                             <input
                                 className="order-modal-input"
@@ -635,10 +642,10 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                     {/* Footer */}
                     <div className="order-modal-footer">
                         <button className="order-modal-btn-cancel" onClick={onClose} disabled={isProcessing}>
-                            Anular
+                            {t('btn.cancel')}
                         </button>
                         <button className="order-modal-btn-submit" onClick={handleSubmit} disabled={isProcessing}>
-                            {isProcessing ? 'Procesando...' : 'Procesar'}
+                            {isProcessing ? t('order.processing') : isEditing ? t('order.save_changes') : t('order.process')}
                         </button>
                     </div>
                 </div>

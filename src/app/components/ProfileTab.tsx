@@ -32,7 +32,6 @@ export const ProfileTab = ({
     const appContext = useAppContext();
     const { accessToken } = appContext;
 
-    const [name, setName] = useState(userName);
     const [viewMode, setViewMode] = useState<'menu' | 'categories' | 'notifications' | 'goal' | 'identity' | 'sync' | 'colors'>('menu');
     const [isExplainerOpen, setIsExplainerOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<{ oldTag: string; newTag: string; newIcon: string } | null>(null);
@@ -102,6 +101,11 @@ export const ProfileTab = ({
         setIsExplainerOpen(false);
     };
     const toggleAutoAdd = (val: boolean) => {
+        if (val) {
+            const confirmed = window.confirm(t('profile.auto_add_confirm'));
+            if (!confirmed) return;
+            localStorage.setItem('bankAutoAddConsentAt', new Date().toISOString());
+        }
         setAutoAddEnabled(val);
         (window as any).__setBankAutoAdd?.(val);
     };
@@ -123,28 +127,48 @@ export const ProfileTab = ({
     }, [transactions, availableCategories]);
 
     // Spending stats for goal card
-    const now = new Date();
-    const curMonth = now.getMonth();
-    const curYear = now.getFullYear();
+    const currentDate = new Date();
+    const curMonth = currentDate.getMonth();
+    const curYear = currentDate.getFullYear();
 
-    const currentMonthExpense = useMemo(() => {
-        return transactions
-            .filter(t => {
-                const parts = t.date.split(t.date.includes('/') ? '/' : '-');
-                let dMonth, dYear;
-                if (t.date === 'Hoy') { dMonth = curMonth; dYear = curYear; }
-                else if (t.date === 'Ayer') { const d = new Date(); d.setDate(now.getDate() - 1); dMonth = d.getMonth(); dYear = d.getFullYear(); }
-                else if (parts.length >= 2) {
-                    if (parts[0].length === 4) { dYear = Number(parts[0]); dMonth = Number(parts[1]) - 1; }
-                    else { dYear = Number(parts[2]) || curYear; dMonth = Number(parts[1]) - 1; }
-                } else { return false; }
-                return dMonth === curMonth && dYear === curYear && t.type === 'expense' && !t.excludeFromBudget && t.goalType !== 'mensual' && t.goalType !== 'periodo';
-            })
-            .reduce((acc, t) => acc + t.amount, 0);
-    }, [transactions, curMonth, curYear]);
+    const currentMonthExpense = transactions
+        .filter(t => {
+            const parts = t.date.split(t.date.includes('/') ? '/' : '-');
+            let dMonth;
+            let dYear;
+
+            if (t.date === 'Hoy') {
+                dMonth = curMonth;
+                dYear = curYear;
+            } else if (t.date === 'Ayer') {
+                const yesterday = new Date(currentDate);
+                yesterday.setDate(currentDate.getDate() - 1);
+                dMonth = yesterday.getMonth();
+                dYear = yesterday.getFullYear();
+            } else if (parts.length >= 2) {
+                if (parts[0].length === 4) {
+                    dYear = Number(parts[0]);
+                    dMonth = Number(parts[1]) - 1;
+                } else {
+                    dYear = Number(parts[2]) || curYear;
+                    dMonth = Number(parts[1]) - 1;
+                }
+            } else {
+                return false;
+            }
+
+            return dMonth === curMonth
+                && dYear === curYear
+                && t.type === 'expense'
+                && !t.excludeFromBudget
+                && t.goalType !== 'mensual'
+                && t.goalType !== 'periodo';
+        })
+        .reduce((acc, t) => acc + t.amount, 0);
     const goalPct = monthlyGoal > 0 ? Math.min(Math.round((currentMonthExpense / monthlyGoal) * 100), 100) : 0;
-    const daysLeft = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
+    const daysLeft = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate() - currentDate.getDate();
 
+    const name = userName;
     const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
     // ── Actions ───────────────────────────────────────────────
@@ -226,13 +250,13 @@ export const ProfileTab = ({
 
             {/* Top bar */}
             <div className="profile-topbar">
-                <h1 className="profile-title">Perfil</h1>
+                <h1 className="profile-title">{t('profile.title')}</h1>
                 {viewMode !== 'menu' && (
                     <button className="profile-back-btn" onClick={() => setViewMode('menu')}>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                             <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
                         </svg>
-                        Volver
+                        {t('btn.back')}
                     </button>
                 )}
             </div>
@@ -301,19 +325,6 @@ export const ProfileTab = ({
                             <span className="profile-card-sub">{t('profile.currency_sub')}</span>
                         </div>
 
-                        {/* Theme card */}
-                        <div className="profile-card" onClick={toggleTheme} style={{ cursor: 'pointer' }}>
-                            <div className="profile-card-label">{t('profile.theme')}</div>
-                            <button
-                                className={`profile-toggle ${theme === 'dark' ? 'profile-toggle--on' : 'profile-toggle--off'}`}
-                                onClick={e => { e.stopPropagation(); toggleTheme(); }}
-                            >
-                                <span className="profile-toggle-thumb" />
-                            </button>
-                            <div className="profile-card-value">{theme === 'dark' ? t('profile.theme_on') : t('profile.theme_off')}</div>
-                            <span className="profile-card-sub">Organic Dark</span>
-                        </div>
-
                         {/* Language card */}
                         <div className="profile-card">
                             <div className="profile-card-label">{t('profile.language')}</div>
@@ -351,25 +362,6 @@ export const ProfileTab = ({
                                 </div>
                             </div>
                             <span className="profile-card-sub">{lang === 'es' ? 'Español' : 'English'}</span>
-                        </div>
-
-                        {/* Travel Mode card */}
-                        <div
-                            className="profile-card"
-                            onClick={appContext.toggleTravelMode}
-                            style={{ cursor: 'pointer' }}
-                        >
-                            <div className="profile-card-label">{t('profile.travel_mode')}</div>
-                            <button
-                                className={`profile-toggle ${appContext.travelModeStart ? 'profile-toggle--on' : 'profile-toggle--off'}`}
-                                onClick={e => { e.stopPropagation(); appContext.toggleTravelMode(); }}
-                            >
-                                <span className="profile-toggle-thumb" />
-                            </button>
-                            <div className="profile-card-value">
-                                {appContext.travelModeStart ? t('travel.active') : t('travel.inactive')}
-                            </div>
-                            <span className="profile-card-sub">✈️ {t('profile.travel_mode_desc')}</span>
                         </div>
 
                     </div>{/* end profile-grid */}
@@ -546,8 +538,16 @@ export const ProfileTab = ({
 
                     <div className="profile-notif-card">
                         <p className="profile-notif-desc">
-                            Permite leer las notificaciones bancarias entrantes (Mercado Pago, Ualá, Google Wallet, Brubank, etc.) para registrar gastos automáticamente.
+                            {t('profile.notif_disclosure')}
                         </p>
+                        <a
+                            href="/privacy"
+                            className="profile-notif-link"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            {t('profile.notif_privacy_link')}
+                        </a>
                         <div className="profile-notif-toggle-row">
                             <span className="profile-notif-toggle-label">{t('profile.notif_banks')}</span>
                             <button
@@ -558,7 +558,10 @@ export const ProfileTab = ({
                             </button>
                         </div>
                         <div className="profile-notif-toggle-row" style={{ opacity: bankSyncEnabled ? 1 : 0.4, transition: 'opacity 0.2s' }}>
-                            <span className="profile-notif-toggle-label">{t('profile.notif_auto_save')}</span>
+                            <div>
+                                <span className="profile-notif-toggle-label">{t('profile.notif_auto_save')}</span>
+                                <div className="profile-notif-toggle-help">{t('profile.notif_auto_save_help')}</div>
+                            </div>
                             <button
                                 className={`profile-toggle ${autoAddEnabled ? 'profile-toggle--on' : 'profile-toggle--off'}`}
                                 onClick={() => { if (bankSyncEnabled) toggleAutoAdd(!autoAddEnabled); }}
@@ -581,7 +584,7 @@ export const ProfileTab = ({
                         onClick={() => {
                             // Simula una notificación enviando los datos al window
                             if (!(window as any).__debugNotify) {
-                                alert("Recargá la página para activar el debug");
+                                alert(t('profile.notif_debug_reload'));
                                 return;
                             }
                             (window as any).__debugNotify({
@@ -591,7 +594,7 @@ export const ProfileTab = ({
                             });
                         }}
                     >
-                        🧪 Simular Notificación (Debug)
+                        {t('profile.notif_debug_button')}
                     </button>
                 </div>
             )}
@@ -615,19 +618,42 @@ export const ProfileTab = ({
 
                         <div className="profile-form-group">
                             <label>{t('profile.username_label')}</label>
-                            <input
-                                className="profile-text-input"
-                                value={name}
-                                onChange={e => { setName(e.target.value); localStorage.setItem("financeUserName", e.target.value); }}
-                            />
+                            <div className="profile-text-input-shell">
+                                <div className="profile-text-display">{name}</div>
+                                <span className="profile-text-input-icon" aria-hidden="true">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="5" y="11" width="14" height="10" rx="2" />
+                                        <path d="M8 11V8a4 4 0 1 1 8 0v3" />
+                                    </svg>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="profile-identity-travel-card">
+                            <div className="profile-identity-travel-top">
+                                <div>
+                                    <div className="profile-identity-travel-label">{t('profile.travel_mode')}</div>
+                                    <div className="profile-identity-travel-status">
+                                        {appContext.travelModeStart ? t('travel.active') : t('travel.inactive')}
+                                    </div>
+                                </div>
+                                <button
+                                    className={`profile-toggle profile-identity-travel-toggle ${appContext.travelModeStart ? 'profile-toggle--on' : 'profile-toggle--off'}`}
+                                    onClick={appContext.toggleTravelMode}
+                                >
+                                    <span className="profile-toggle-thumb" />
+                                </button>
+                            </div>
+                            <p className="profile-identity-travel-desc">{t('profile.travel_mode_desc')}</p>
+                            <p className="profile-identity-travel-help">{t('profile.travel_mode_help')}</p>
                         </div>
                     </div>
 
                     {/* TODO: OAuth (Google, GitHub) — pendiente de implementación */}
                     <div style={{ position: 'relative' }}>
-                        <div className="profile-subview-label" style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div className="profile-subview-label profile-subview-header">
                             {t('profile.social_links')}
-                            <span style={{ fontSize: '0.5rem', fontWeight: 900, background: 'var(--surface-alt)', color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: '4px', padding: '0.15rem 0.4rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Próximamente</span>
+                            <span className="profile-soon-badge">Próximamente</span>
                         </div>
                         <div className="profile-social-list" style={{ opacity: 0.35, pointerEvents: 'none', userSelect: 'none' }}>
                             <div className="profile-social-item">
@@ -653,9 +679,9 @@ export const ProfileTab = ({
 
                     {/* TODO: session management — pendiente de backend (tabla sessions/devices) */}
                     <div style={{ position: 'relative' }}>
-                        <div className="profile-subview-label" style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div className="profile-subview-label profile-subview-header">
                             {t('profile.linked_devices')}
-                            <span style={{ fontSize: '0.5rem', fontWeight: 900, background: 'var(--surface-alt)', color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: '4px', padding: '0.15rem 0.4rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Próximamente</span>
+                            <span className="profile-soon-badge">Próximamente</span>
                         </div>
                         <div className="profile-device-list" style={{ opacity: 0.35, pointerEvents: 'none', userSelect: 'none' }}>
                             <div className="profile-device-item">
@@ -669,7 +695,7 @@ export const ProfileTab = ({
                             <div className="profile-device-item">
                                 <div className="profile-device-icon-wrap">💻</div>
                                 <div className="profile-device-details">
-                                    <div className="profile-device-name">MacBook Pro 14" M3</div>
+                                    <div className="profile-device-name">MacBook Pro 14&quot; M3</div>
                                     <div className="profile-device-meta">Última actividad hace 2 horas • Buenos Aires, ARG</div>
                                 </div>
                                 <button className="profile-device-logout" disabled>Cerrar</button>

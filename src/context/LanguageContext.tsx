@@ -12,7 +12,7 @@ const DICTS: Record<Lang, Record<string, string>> = { en, es };
 interface LanguageContextType {
     lang: Lang;
     setLang: (lang: Lang) => void;
-    t: (key: TranslationKey) => string;
+    t: (key: TranslationKey, params?: Record<string, string | number>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -28,8 +28,12 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
         localStorage.setItem('app-lang', newLang);
     }, []);
 
-    const t = useCallback((key: TranslationKey): string => {
-        return DICTS[lang]?.[key] ?? DICTS['es']?.[key] ?? key;
+    const t = useCallback((key: TranslationKey, params?: Record<string, string | number>): string => {
+        const template = DICTS[lang]?.[key] ?? DICTS['es']?.[key] ?? key;
+        if (!params) return template;
+        return Object.entries(params).reduce((result, [paramKey, value]) => {
+            return result.replaceAll(`{${paramKey}}`, String(value));
+        }, template);
     }, [lang]);
 
     return (

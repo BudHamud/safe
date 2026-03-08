@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Transaction, Category } from "../../types";
 import { formatCurrency } from '../../lib/utils';
 import { formatDate } from './movements.utils';
+import { useLanguage } from '../../context/LanguageContext';
 
 type TransactionDetailsModalProps = {
     transaction: Transaction | null;
@@ -74,6 +75,7 @@ const formatDateForInput = (d: string | undefined) => {
 };
 
 export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpdate, globalCurrency, availableCategories }: TransactionDetailsModalProps) => {
+    const { t } = useLanguage();
     const sym = globalCurrency === 'ILS' ? '₪' : (globalCurrency === 'EUR' ? '€' : '$');
     const [viewMode, setViewMode] = useState<'details' | 'edit' | 'confirm_delete'>('details');
     const [formData, setFormData] = useState<Partial<Transaction>>({});
@@ -140,10 +142,10 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                 body: JSON.stringify(finalData)
             });
             if (res.ok) { onUpdate?.(); }
-            else { alert("Error al guardar"); }
+            else { alert(t('details.save_error')); }
         } catch (e) {
             console.error(e);
-            alert("Error al recalcular cotizaciones o guardar.");
+            alert(t('details.recalculate_save_error'));
         }
         setIsSaving(false);
     };
@@ -180,17 +182,17 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                         </svg>
                     </div>
                     <h2 style={{ fontSize: '1rem', fontWeight: 900, color: TEXT, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 0.5rem' }}>
-                        ¿Eliminar Orden?
+                        {t('details.delete_order_title')}
                     </h2>
                     <p style={{ fontSize: '0.82rem', color: MUTED, marginBottom: '1.75rem', lineHeight: 1.5, fontWeight: 500 }}>
-                        Esta acción no se puede deshacer.
+                        {t('details.delete_order_warning')}
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
                         <button onClick={confirmDelete} style={{ width: '100%', background: RED, border: 'none', borderRadius: '8px', color: 'var(--accent-text)', padding: '0.8rem', fontWeight: 900, fontSize: '0.75rem', letterSpacing: '0.1em', cursor: 'pointer', textTransform: 'uppercase', fontFamily: 'inherit' }}>
-                            Eliminar
+                            {t('btn.delete')}
                         </button>
                         <button onClick={() => setViewMode('details')} style={{ width: '100%', background: 'transparent', border: `1px solid ${BORDER2}`, borderRadius: '8px', color: MUTED, padding: '0.8rem', fontWeight: 800, fontSize: '0.75rem', letterSpacing: '0.1em', cursor: 'pointer', textTransform: 'uppercase', fontFamily: 'inherit' }}>
-                            Cancelar
+                            {t('btn.cancel')}
                         </button>
                     </div>
                 </div>
@@ -204,7 +206,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                 <div onClick={e => e.stopPropagation()} style={{ ...cardBase, maxWidth: '440px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.2rem 1.5rem', borderBottom: `1px solid ${BORDER}` }}>
                         <span style={{ fontSize: '0.82rem', fontWeight: 900, color: TEXT, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                            Editar Transacción
+                            {t('modal.edit_transaction')}
                         </span>
                         <button onClick={handleClose} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', padding: '4px', display: 'flex' }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -215,12 +217,12 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
 
                     <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div>
-                            <label style={editLbl}>Concepto</label>
+                            <label style={editLbl}>{t('details.concept')}</label>
                             <input value={formData.desc || ''} onChange={e => setFormData({ ...formData, desc: e.target.value })} style={editInp} />
                         </div>
 
                         <div>
-                            <label style={editLbl}>Monto</label>
+                            <label style={editLbl}>{t('field.amount')}</label>
                             <div style={{ position: 'relative' }}>
                                 <input
                                     type="number"
@@ -236,7 +238,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
                             <div>
-                                <label style={editLbl}>Categoría</label>
+                                <label style={editLbl}>{t('field.category')}</label>
                                 <div style={{ position: 'relative' }}>
                                     {/* Custom searchable dropdown - same as NewOrderModal */}
                                     <button
@@ -247,7 +249,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {formData.tag
                                                 ? (() => { const found = categories.find(c => c.label === formData.tag); return found ? `${found.icon} ${found.label}` : formData.tag; })()
-                                                : 'Seleccionar...'}
+                                                : t('order.select_placeholder')}
                                         </span>
                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="2.5" style={{ flexShrink: 0, marginLeft: '0.4rem' }}>
                                             <polyline points="6 9 12 15 18 9" />
@@ -258,7 +260,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                                         <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 999, background: SURFACE2, border: `1px solid ${BORDER2}`, borderRadius: '8px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
                                             <input
                                                 type="text"
-                                                placeholder="Buscar..."
+                                                placeholder={t('movements.search')}
                                                 value={catSearch}
                                                 onChange={e => setCatSearch(e.target.value)}
                                                 autoFocus
@@ -287,7 +289,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                                 </div>
                             </div>
                             <div>
-                                <label style={editLbl}>Fecha</label>
+                                <label style={editLbl}>{t('field.date')}</label>
                                 <input
                                     type="date"
                                     value={formatDateForInput(formData.date)}
@@ -298,13 +300,13 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                         </div>
 
                         <div>
-                            <label style={editLbl}>Medio de Pago</label>
+                            <label style={editLbl}>{t('field.payment_method')}</label>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: '8px', padding: '3px', gap: '3px' }}>
                                 <button onClick={() => setFormData({ ...formData, paymentMethod: formData.paymentMethod === 'billete' ? '' : 'billete', cardDigits: '' })} style={{ padding: '0.4rem', borderRadius: '6px', border: `1px solid ${formData.paymentMethod === 'billete' ? BORDER2 : 'transparent'}`, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.07em', background: formData.paymentMethod === 'billete' ? SURFACE2 : 'transparent', color: formData.paymentMethod === 'billete' ? TEXT : MUTED, transition: 'all 0.18s' }}>
-                                    💵 EFECTIVO
+                                    💵 {t('order.payment_cash')}
                                 </button>
                                 <button onClick={() => setFormData({ ...formData, paymentMethod: formData.paymentMethod === 'tarjeta' ? '' : 'tarjeta' })} style={{ padding: '0.4rem', borderRadius: '6px', border: `1px solid ${formData.paymentMethod === 'tarjeta' ? BORDER2 : 'transparent'}`, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.07em', background: formData.paymentMethod === 'tarjeta' ? SURFACE2 : 'transparent', color: formData.paymentMethod === 'tarjeta' ? TEXT : MUTED, transition: 'all 0.18s' }}>
-                                    💳 TARJETA
+                                    💳 {t('order.payment_card')}
                                 </button>
                             </div>
                             {formData.paymentMethod === 'tarjeta' && (
@@ -334,9 +336,9 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                         </div>
 
                         <div>
-                            <label style={editLbl}>Tipo de registro</label>
+                            <label style={editLbl}>{t('details.record_type')}</label>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: '8px', padding: '3px', gap: '3px' }}>
-                                {[{ v: 'unico' as const, l: 'ÚNICO' }, { v: 'mensual' as const, l: 'MENSUAL' }, { v: 'periodo' as const, l: 'PERIODO' }].map(o => {
+                                {[{ v: 'unico' as const, l: t('order.goal_single') }, { v: 'mensual' as const, l: t('order.goal_monthly') }, { v: 'periodo' as const, l: t('order.goal_period') }].map(o => {
                                     const active = (formData.goalType || 'unico') === o.v;
                                     return (
                                         <button key={o.v} onClick={() => setFormData({ ...formData, goalType: o.v })} style={{ padding: '0.4rem', borderRadius: '6px', border: `1px solid ${active ? BORDER2 : 'transparent'}`, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.07em', background: active ? SURFACE2 : 'transparent', color: active ? TEXT : MUTED, transition: 'all 0.18s' }}>
@@ -349,35 +351,35 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
 
                         {formData.goalType === 'periodo' && (
                             <div>
-                                <label style={editLbl}>Frecuencia (Meses)</label>
+                                <label style={editLbl}>{t('details.frequency_months')}</label>
                                 <select
                                     name="periodicity"
                                     value={formData.periodicity || '12'}
                                     onChange={e => setFormData({ ...formData, periodicity: parseInt(e.target.value) })}
                                     style={editInp}
                                 >
-                                    <option value="3">Trimestral (3m)</option>
-                                    <option value="6">Semestral (6m)</option>
-                                    <option value="12">Anual (12m)</option>
-                                    <option value="24">Bianual (24m)</option>
+                                    <option value="3">{t('details.quarterly_short')}</option>
+                                    <option value="6">{t('details.biannual_short')}</option>
+                                    <option value="12">{t('details.annual_short')}</option>
+                                    <option value="24">{t('details.two_years_short')}</option>
                                 </select>
                             </div>
                         )}
 
                         <div>
-                            <label style={editLbl}>Descripción</label>
+                            <label style={editLbl}>{t('field.description')}</label>
                             <textarea value={formData.details || ''} onChange={e => setFormData({ ...formData, details: e.target.value })} rows={3} style={{ ...editInp, resize: 'none', lineHeight: 1.55 }} />
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                             <button onClick={handleSave} disabled={isSaving} style={{ width: '100%', background: GREEN, border: 'none', borderRadius: '8px', color: 'var(--primary-text)', padding: '0.8rem', fontWeight: 900, fontSize: '0.75rem', letterSpacing: '0.1em', cursor: isSaving ? 'not-allowed' : 'pointer', textTransform: 'uppercase', fontFamily: 'inherit', opacity: isSaving ? 0.7 : 1 }}>
-                                {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+                                {isSaving ? t('details.saving') : t('order.save_changes')}
                             </button>
 
                             {(transaction.goalType === 'mensual' || transaction.goalType === 'periodo') && !transaction.isCancelled && (
                                 <button
                                     onClick={async () => {
-                                        if (confirm("¿Estás seguro de cancelar esta recurrencia? Ya no aparecerá en los próximos meses.")) {
+                                        if (confirm(t('details.cancel_recurrence_confirm'))) {
                                             const res = await fetch('/api/transactions', {
                                                 method: 'PUT',
                                                 headers: { 'Content-Type': 'application/json' },
@@ -388,12 +390,12 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                                     }}
                                     style={{ width: '100%', background: 'transparent', border: `1px solid ${RED}44`, borderRadius: '8px', color: RED, padding: '0.8rem', fontWeight: 800, fontSize: '0.72rem', letterSpacing: '0.08em', cursor: 'pointer', textTransform: 'uppercase', fontFamily: 'inherit' }}
                                 >
-                                    Cancelar Recurrencia
+                                    {t('details.cancel_recurrence')}
                                 </button>
                             )}
 
                             <button onClick={() => setViewMode('confirm_delete')} style={{ width: '100%', background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: '8px', color: MUTED, padding: '0.8rem', fontWeight: 800, fontSize: '0.72rem', letterSpacing: '0.08em', cursor: 'pointer', textTransform: 'uppercase', fontFamily: 'inherit' }}>
-                                Eliminar Transacción
+                                {t('details.delete_transaction')}
                             </button>
                         </div>
                     </div>
@@ -415,7 +417,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                             {transaction.desc}
                         </div>
                         <div style={{ fontSize: '0.57rem', color: MUTED, fontWeight: 700, marginTop: '0.18rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                            Transacción verificada
+                            {t('details.verified_transaction')}
                         </div>
                     </div>
 
@@ -425,7 +427,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                         </span>
                         {transaction.goalType && (
                             <span style={{ background: 'transparent', color: MUTED, border: `1px solid ${BORDER}`, borderRadius: '20px', padding: '0.18rem 0.5rem', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                {transaction.goalType === 'meta' ? '🎯 Meta' : '📅 Mensual'}
+                                {transaction.goalType === 'meta' ? t('details.goal_badge') : transaction.goalType === 'periodo' ? t('details.period_badge') : t('details.monthly_badge')}
                             </span>
                         )}
                     </div>
@@ -434,7 +436,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                 <div style={{ padding: '1.25rem 1.4rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                     <div style={{ textAlign: 'center', padding: '0.75rem 0 0.5rem' }}>
                         <div style={{ fontSize: '0.55rem', fontWeight: 800, color: MUTED, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-                            Monto Total
+                            {t('details.total_amount')}
                         </div>
                         <div style={{ fontSize: '2.5rem', fontWeight: 900, color: amountColor, letterSpacing: '-0.04em', lineHeight: 1 }}>
                             {isExpense ? '−' : '+'}{formatCurrency(transaction.amount, sym)}
@@ -442,7 +444,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                     </div>
 
                     <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: '8px', padding: '0.8rem 1rem' }}>
-                        <span style={fieldLbl}>Fecha de Operación</span>
+                        <span style={fieldLbl}>{t('details.operation_date')}</span>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <span style={{ fontSize: '0.9rem', fontWeight: 700, color: TEXT, letterSpacing: '0.02em' }}>
                                 {formatDate(transaction.date)}
@@ -455,10 +457,10 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
 
                     {transaction.paymentMethod && (
                         <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: '8px', padding: '0.8rem 1rem' }}>
-                            <span style={fieldLbl}>Medio de Pago</span>
+                            <span style={fieldLbl}>{t('field.payment_method')}</span>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <span style={{ fontSize: '0.9rem', fontWeight: 700, color: TEXT, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-                                    {transaction.paymentMethod === 'tarjeta' ? '💳 Tarjeta' : '💵 Efectivo'}
+                                    {transaction.paymentMethod === 'tarjeta' ? `💳 ${t('details.card')}` : `💵 ${t('details.cash')}`}
                                     {transaction.paymentMethod === 'tarjeta' && transaction.cardDigits && (
                                         <span style={{ marginLeft: '0.5rem', color: MUTED, fontSize: '0.85rem', letterSpacing: '0.1em' }}>•••• •••• •••• {transaction.cardDigits}</span>
                                     )}
@@ -468,9 +470,9 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                     )}
 
                     <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: '8px', padding: '0.8rem 1rem' }}>
-                        <span style={fieldLbl}>Descripción</span>
+                        <span style={fieldLbl}>{t('field.description')}</span>
                         <p style={{ margin: 0, fontSize: '0.85rem', color: transaction.details ? TEXT : MUTED, lineHeight: 1.6, fontWeight: 500, whiteSpace: 'pre-wrap' }}>
-                            {transaction.details || 'Sin descripción detallada registrada para este movimiento.'}
+                            {transaction.details || t('details.no_description')}
                         </p>
                     </div>
 
@@ -489,7 +491,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
                                 <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
                             </svg>
-                            Editar Registro
+                            {t('details.edit_record')}
                         </button>
                         <button
                             onClick={() => setViewMode('confirm_delete')}
@@ -498,7 +500,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                 <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
                             </svg>
-                            Eliminar
+                            {t('btn.delete')}
                         </button>
                     </div>
                 </div>

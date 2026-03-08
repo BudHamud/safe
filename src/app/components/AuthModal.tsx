@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import './AuthModal.css';
 import { Logo } from './Logo';
+import { useLanguage } from '../../context/LanguageContext';
 
 type AuthModalProps = {
     onLogin: (userId: string, username: string, token?: string) => void;
 };
 export const AuthModal = ({ onLogin }: AuthModalProps) => {
+    const { t } = useLanguage();
     const [isRegister, setIsRegister] = useState(false);
     const [formData, setFormData] = useState({ username: '', password: '' });
     const [showPassword, setShowPassword] = useState(false);
@@ -14,7 +16,7 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.username || !formData.password) {
-            alert("Por favor completa los campos.");
+            alert(t('auth.complete_fields'));
             return;
         }
         setIsLoading(true);
@@ -26,13 +28,13 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
             });
             const data = await res.json();
             if (!res.ok) {
-                alert(data.error || 'Error de autenticación');
+                alert(data.error || t('auth.error'));
                 return;
             }
             onLogin(data.id, data.username, data.access_token);
         } catch (e) {
             console.error(e);
-            alert("Error de conexión al servidor");
+            alert(t('auth.server_connection_error'));
         } finally {
             setIsLoading(false);
         }
@@ -52,7 +54,7 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
                 <form className="auth-body" onSubmit={handleSubmit}>
 
                     <h2 className="auth-title">
-                        {isRegister ? 'Crear Cuenta' : 'Acceso Seguro'}
+                        {isRegister ? t('auth.create') : t('auth.secure_access')}
                     </h2>
 
                     {/* Login / Registro toggle */}
@@ -62,25 +64,25 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
                             className={`auth-toggle-opt ${!isRegister ? 'active' : ''}`}
                             onClick={() => setIsRegister(false)}
                         >
-                            Login
+                            {t('auth.login_tab')}
                         </button>
                         <button
                             type="button"
                             className={`auth-toggle-opt ${isRegister ? 'active' : ''}`}
                             onClick={() => setIsRegister(true)}
                         >
-                            Registro
+                            {t('auth.register_tab')}
                         </button>
                     </div>
 
                     {/* Username */}
                     <div className="auth-field">
-                        <span className="auth-label">ID Usuario / Alias</span>
+                        <span className="auth-label">{t('auth.user_id_alias')}</span>
                         <div className="auth-input-wrap">
                             <input
                                 type="text"
                                 className="auth-input"
-                                placeholder="Ej. alex_dev"
+                                placeholder={t('auth.username_placeholder')}
                                 value={formData.username}
                                 onChange={e => setFormData({ ...formData, username: e.target.value })}
                                 autoFocus
@@ -92,10 +94,10 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
                     {/* Password */}
                     <div className="auth-field">
                         <div className="auth-field-header">
-                            <span className="auth-label">Clave de Acceso</span>
+                            <span className="auth-label">{t('auth.password_label')}</span>
                             {!isRegister && (
                                 <button type="button" className="auth-forgot">
-                                    ¿Olvidó su clave?
+                                    {t('auth.forgot_password')}
                                 </button>
                             )}
                         </div>
@@ -132,7 +134,7 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
 
                     {/* Submit */}
                     <button type="submit" className="auth-submit" disabled={isLoading}>
-                        {isLoading ? 'Procesando...' : isRegister ? 'Registrar' : 'Autenticar'}
+                        {isLoading ? t('auth.processing') : isRegister ? t('auth.register_action') : t('auth.authenticate_action')}
                     </button>
 
                 </form>
