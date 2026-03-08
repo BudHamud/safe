@@ -14,6 +14,7 @@ type MovementsTabProps = {
     userId: string | null;
     onTransactionsUpdated: () => void;
     globalCurrency: string;
+    monthlyGoal: number;
     availableCategories: any[];
 };
 
@@ -57,37 +58,38 @@ const TxBadge = ({ children, color, bg }: { children: React.ReactNode; color: st
 );
 
 // Single transaction card
-const TxCard = ({ tx, sym, onClick }: { tx: Transaction; sym: string; onClick: () => void }) => (
-    <div
-        onClick={onClick}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.65rem 0.85rem', cursor: 'pointer', background: 'var(--surface)', borderRadius: '10px', border: '1px solid var(--border-dim)', transition: 'background 0.15s' }}
-        onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in srgb, var(--surface) 70%, #fff 30%)')}
-        onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface)')}
-    >
-        {/* Icon avatar */}
-        <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--w-tx-icon-bg, var(--surface))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', flexShrink: 0 }}>
-            {getTxIcon(tx)}
-        </div>
+const TxCard = ({ tx, sym, onClick }: { tx: Transaction; sym: string; onClick: () => void }) => {
+    const { t } = useLanguage();
 
-        {/* Info */}
-        <div style={{ flex: 1, minWidth: 0, margin: '0 0.85rem' }}>
-            <div style={{ fontSize: '0.82rem', fontWeight: 800, color: TOKEN.text, textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {tx.desc}
+    return (
+        <div
+            onClick={onClick}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.65rem 0.85rem', cursor: 'pointer', background: 'var(--surface)', borderRadius: '10px', border: '1px solid var(--border-dim)', transition: 'background 0.15s' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in srgb, var(--surface) 70%, #fff 30%)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface)')}
+        >
+            <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--w-tx-icon-bg, var(--surface))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', flexShrink: 0 }}>
+                {getTxIcon(tx)}
             </div>
-            <div style={{ fontSize: '0.62rem', color: TOKEN.muted, fontWeight: 600, marginTop: '0.15rem', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                {tx.tag} • {formatDate(tx.date)}
-                {tx.goalType === 'mensual' && <TxBadge color={TOKEN.green} bg="var(--surface-alt)">MENSUAL</TxBadge>}
-                {tx.goalType === 'periodo' && <TxBadge color={TOKEN.green} bg="var(--surface-alt)">RECURRENTE {tx.periodicity}M</TxBadge>}
-                {tx.isCancelled && <TxBadge color={TOKEN.red} bg={`${TOKEN.red}22`}>CANCELADO</TxBadge>}
-            </div>
-        </div>
 
-        {/* Amount */}
-        <div style={{ fontSize: '0.9rem', fontWeight: 900, flexShrink: 0, color: tx.type === 'expense' ? TOKEN.red : TOKEN.green, fontFamily: 'var(--font-display)' }}>
-            {tx.type === 'expense' ? '-' : '+'}{formatCurrency(tx.amount, sym)}
+            <div style={{ flex: 1, minWidth: 0, margin: '0 0.85rem' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: TOKEN.text, textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {tx.desc}
+                </div>
+                <div style={{ fontSize: '0.62rem', color: TOKEN.muted, fontWeight: 600, marginTop: '0.15rem', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    {tx.tag} • {formatDate(tx.date)}
+                    {tx.goalType === 'mensual' && <TxBadge color={TOKEN.green} bg="var(--surface-alt)">{t('movements.badge_monthly')}</TxBadge>}
+                    {tx.goalType === 'periodo' && <TxBadge color={TOKEN.green} bg="var(--surface-alt)">{t('movements.badge_recurring_n', { count: tx.periodicity ?? '' } as any)}</TxBadge>}
+                    {tx.isCancelled && <TxBadge color={TOKEN.red} bg={`${TOKEN.red}22`}>{t('movements.badge_cancelled')}</TxBadge>}
+                </div>
+            </div>
+
+            <div style={{ fontSize: '0.9rem', fontWeight: 900, flexShrink: 0, color: tx.type === 'expense' ? TOKEN.red : TOKEN.green, fontFamily: 'var(--font-display)' }}>
+                {tx.type === 'expense' ? '-' : '+'}{formatCurrency(tx.amount, sym)}
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 // Sidebar: balance + income/expense
 const SidebarBalance = ({ balance, income, expense, sym }: { balance: number; income: number; expense: number; sym: string }) => {
@@ -212,9 +214,12 @@ const SidebarTopCats = ({ topCats, maxCat, sym }: { topCats: [string, number][];
 };
 
 // Full sidebar panel
-const SidebarPanel = ({ sidebar, sym, fullWidth }: { sidebar: SidebarData; sym: string; fullWidth?: boolean }) => (
-    <div style={{ width: fullWidth ? '100%' : '220px', flexShrink: 0 }}>
-        <div style={{ background: TOKEN.dark, border: `1px solid ${TOKEN.border}`, borderRadius: '10px', padding: '1.1rem' }}>
+const SidebarPanel = ({ sidebar, sym, fullWidth }: { sidebar: SidebarData; sym: string; fullWidth?: boolean }) => {
+    const { t } = useLanguage();
+
+    return (
+        <div style={{ width: fullWidth ? '100%' : '220px', flexShrink: 0 }}>
+            <div style={{ background: TOKEN.dark, border: `1px solid ${TOKEN.border}`, borderRadius: '10px', padding: '1.1rem' }}>
 
             {/* Period label */}
             <div style={{ fontSize: '0.55rem', fontWeight: 800, color: TOKEN.green, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -225,24 +230,25 @@ const SidebarPanel = ({ sidebar, sym, fullWidth }: { sidebar: SidebarData; sym: 
             <SidebarBalance balance={sidebar.balance} income={sidebar.income} expense={sidebar.expense} sym={sym} />
 
             {/* Middle widget: donut (month) or fixed/variable (year/hist) */}
-            <div style={{ marginBottom: '0.85rem', paddingBottom: '0.85rem', borderBottom: '1px solid var(--border-dim)' }}>
-                <div style={{ fontSize: '0.6rem', color: TOKEN.muted, fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.6rem' }}>
-                    {sidebar.isMonth ? 'Objetivo Gastos' : 'Fijo vs Variable'}
+                <div style={{ marginBottom: '0.85rem', paddingBottom: '0.85rem', borderBottom: '1px solid var(--border-dim)' }}>
+                    <div style={{ fontSize: '0.6rem', color: TOKEN.muted, fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.6rem' }}>
+                        {sidebar.isMonth ? t('movements.sidebar_goal') : t('movements.sidebar_fixed_var')}
+                    </div>
+                    {sidebar.isMonth
+                        ? <SidebarGoal goalPct={sidebar.goalPct} goalSpent={sidebar.goalSpent} goalLimit={sidebar.goalLimit} sym={sym} />
+                        : <SidebarFixedVar fixedPct={sidebar.fixedPct} varPct={sidebar.varPct} fixedAmt={sidebar.fixedAmt} varAmt={sidebar.varAmt} sym={sym} />
+                    }
                 </div>
-                {sidebar.isMonth
-                    ? <SidebarGoal goalPct={sidebar.goalPct} goalSpent={sidebar.goalSpent} goalLimit={sidebar.goalLimit} sym={sym} />
-                    : <SidebarFixedVar fixedPct={sidebar.fixedPct} varPct={sidebar.varPct} fixedAmt={sidebar.fixedAmt} varAmt={sidebar.varAmt} sym={sym} />
-                }
-            </div>
 
             {/* Top categories */}
             <div>
-                <div style={{ fontSize: '0.6rem', color: TOKEN.muted, fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.7rem' }}>Top Categorías</div>
+                <div style={{ fontSize: '0.6rem', color: TOKEN.muted, fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.7rem' }}>{t('movements.sidebar_top_cats')}</div>
                 <SidebarTopCats topCats={sidebar.topCats} maxCat={sidebar.maxCat} sym={sym} />
             </div>
         </div>
     </div>
-);
+    );
+};
 
 // ─── Column mapping modal ─────────────────────────────────────────────────────
 
@@ -636,7 +642,7 @@ function useIsMobile(breakpoint = 768) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export const MovementsTab = ({
-    transactions, onTransactionClick, userId, onTransactionsUpdated, globalCurrency, availableCategories,
+    transactions, onTransactionClick, userId, onTransactionsUpdated, globalCurrency, monthlyGoal, availableCategories,
 }: MovementsTabProps) => {
     const isMobile = useIsMobile();
     const { t } = useLanguage();
@@ -648,7 +654,7 @@ export const MovementsTab = ({
         importDraft, setImportDraft, handleConfirmMapping,
         importReview, setImportReview,
         handleConfirmReview, importProgress,
-    } = useMovementsLogic(transactions, userId, globalCurrency, onTransactionsUpdated);
+    } = useMovementsLogic(transactions, userId, globalCurrency, monthlyGoal, onTransactionsUpdated);
 
     const { showFilters, search, filterMonth, filterYear, filterCategory, filterType, currentPage } = filters;
     const TYPE_LABELS: Record<string, string> = { all: t('movements.filter_all'), expense: `↓ ${t('movements.expenses')}`, income: `↑ ${t('movements.income')}` };

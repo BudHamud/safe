@@ -40,6 +40,7 @@ const PRIVACY_COPY = {
                     "Podés desactivar la sincronización bancaria en cualquier momento desde Perfil o desde los ajustes de Android.",
                     "Podés desactivar el auto-guardado aunque mantengas activa la detección de notificaciones.",
                     "Podés borrar o editar movimientos guardados dentro de la app.",
+                    "Podés eliminar tu cuenta desde Perfil > Identidad > Eliminar cuenta.",
                 ],
             },
             {
@@ -90,6 +91,7 @@ const PRIVACY_COPY = {
                     "You can disable bank sync at any time from Profile or Android settings.",
                     "You can disable auto-save while keeping notification detection enabled.",
                     "You can edit or delete saved movements inside the app.",
+                    "You can delete your account from Profile > Identity > Delete account.",
                 ],
             },
             {

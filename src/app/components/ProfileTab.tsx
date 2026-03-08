@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import './ProfileTab.css';
 import { Transaction, Category } from "../../types";
 import { formatCurrency } from '../../lib/utils';
@@ -35,6 +35,7 @@ export const ProfileTab = ({
     const [viewMode, setViewMode] = useState<'menu' | 'categories' | 'notifications' | 'goal' | 'identity' | 'sync' | 'colors'>('menu');
     const [isExplainerOpen, setIsExplainerOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<{ oldTag: string; newTag: string; newIcon: string } | null>(null);
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
     // Sync
     const [isSyncing, setIsSyncing] = useState(false);
@@ -85,6 +86,10 @@ export const ProfileTab = ({
     const [autoAddEnabled, setAutoAddEnabled] = useState<boolean>(() =>
         typeof window !== 'undefined' && localStorage.getItem('bankAutoAddEnabled') === 'true'
     );
+
+    useEffect(() => {
+        setNewGoal(monthlyGoal.toString());
+    }, [monthlyGoal]);
 
     const toggleBankSync = (val: boolean) => {
         if (val) {
@@ -237,6 +242,33 @@ export const ProfileTab = ({
             if (res.ok) { onUpdate(); setViewMode('menu'); }
             else alert("Error guardando meta");
         } catch (e) { console.error(e); }
+    };
+
+    const handleDeleteAccount = async () => {
+        const confirmed = window.confirm(t('profile.delete_account_confirm'));
+        if (!confirmed) return;
+
+        setIsDeletingAccount(true);
+        try {
+            const res = await fetch('/api/user', {
+                method: 'DELETE',
+                headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                alert(data.error || t('profile.delete_account_error'));
+                return;
+            }
+
+            alert(t('profile.delete_account_success'));
+            onLogout();
+        } catch (e) {
+            console.error(e);
+            alert(t('profile.delete_account_error'));
+        } finally {
+            setIsDeletingAccount(false);
+        }
     };
 
     // ── Render ────────────────────────────────────────────────
@@ -646,6 +678,22 @@ export const ProfileTab = ({
                             </div>
                             <p className="profile-identity-travel-desc">{t('profile.travel_mode_desc')}</p>
                             <p className="profile-identity-travel-help">{t('profile.travel_mode_help')}</p>
+                        </div>
+
+                        <div style={{ marginTop: '1rem', border: '1px solid color-mix(in srgb, var(--accent) 35%, var(--border) 65%)', borderRadius: '14px', background: 'color-mix(in srgb, var(--accent) 8%, var(--surface) 92%)', padding: '1rem' }}>
+                            <div style={{ fontSize: '0.78rem', fontWeight: 900, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                {t('profile.delete_account_title')}
+                            </div>
+                            <p style={{ fontSize: '0.7rem', lineHeight: 1.6, color: 'var(--text-muted)', margin: '0.55rem 0 0.85rem' }}>
+                                {t('profile.delete_account_desc')}
+                            </p>
+                            <button
+                                onClick={handleDeleteAccount}
+                                disabled={isDeletingAccount}
+                                style={{ width: '100%', border: '1px solid var(--accent)', background: isDeletingAccount ? 'var(--surface-alt)' : 'transparent', color: 'var(--accent)', borderRadius: '10px', padding: '0.7rem 0.85rem', cursor: isDeletingAccount ? 'default' : 'pointer', fontWeight: 900, fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'inherit', opacity: isDeletingAccount ? 0.65 : 1 }}
+                            >
+                                {isDeletingAccount ? t('profile.delete_account_loading') : t('profile.delete_account_action')}
+                            </button>
                         </div>
                     </div>
 

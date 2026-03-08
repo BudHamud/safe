@@ -18,19 +18,23 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
     const { lang, t } = useLanguage();
     const [transactionType, setTransactionType] = useState('expense');
     const [goalType, setGoalType] = useState<'unico' | 'mensual' | 'periodo' | 'meta'>('unico');
-    const [formData, setFormData] = useState({
+    const getDefaultDate = () => new Date().toISOString().split('T')[0];
+    const buildEmptyFormData = (currency: string) => ({
         amount: '',
-        currency: 'USD',
+        currency,
         desc: '',
         details: '',
         tag: '',
         customTag: '',
         customIcon: '💳',
-        date: new Date().toISOString().split('T')[0],
+        date: getDefaultDate(),
         excludeFromBudget: false,
-        periodicity: '12', // Default to 12 months (annual)
-        paymentMethod: '', // Default to empty
+        periodicity: '12',
+        paymentMethod: '',
         cardDigits: '',
+    });
+    const [formData, setFormData] = useState({
+        ...buildEmptyFormData(globalCurrency || 'ILS'),
     });
 
     // Track if we already hydrated this modal session to avoid resets while typing
@@ -39,15 +43,16 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
     useEffect(() => {
         if (isOpen && !lastOpened) {
             if (initialData) {
+                const initialCurrency = ((initialData as any).currency || globalCurrency || 'ILS') as string;
                 setFormData({
                     amount: initialData.amount ? initialData.amount.toString() : '',
-                    currency: 'ILS', // Since we pass amountILS for 'Pago Rápido'
+                    currency: initialCurrency,
                     desc: initialData.desc || '',
                     details: initialData.details || '',
                     tag: initialData.tag || '',
                     customTag: '',
                     customIcon: initialData.icon || '💳',
-                    date: new Date().toISOString().split('T')[0],
+                    date: getDefaultDate(),
                     excludeFromBudget: initialData.excludeFromBudget || false,
                     periodicity: initialData.periodicity?.toString() || '12',
                     paymentMethod: initialData.paymentMethod || '',
@@ -56,20 +61,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
                 if (initialData.type) setTransactionType(initialData.type);
                 if (initialData.goalType) setGoalType(initialData.goalType as 'unico' | 'mensual' | 'periodo' | 'meta');
             } else {
-                setFormData({
-                    amount: '',
-                    currency: globalCurrency || 'USD',
-                    desc: '',
-                    details: '',
-                    tag: '',
-                    customTag: '',
-                    customIcon: '💳',
-                    date: new Date().toISOString().split('T')[0],
-                    excludeFromBudget: false,
-                    periodicity: '12',
-                    paymentMethod: '',
-                    cardDigits: ''
-                });
+                setFormData(buildEmptyFormData(globalCurrency || 'ILS'));
                 setTransactionType('expense');
                 setGoalType('unico');
             }
@@ -241,7 +233,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
         };
 
         onSave(newTx);
-        setFormData({ amount: "", currency: "USD", desc: "", details: "", tag: "", customTag: "", customIcon: "💳", date: new Date().toISOString().split('T')[0], excludeFromBudget: false, periodicity: '12', paymentMethod: '', cardDigits: '' });
+        setFormData(buildEmptyFormData(globalCurrency || 'ILS'));
         setTransactionType('expense');
         setGoalType('unico');
         setIsProcessing(false);

@@ -17,6 +17,7 @@ export default function MovementsPage() {
             }}
             onTransactionClick={context.setSelectedTransaction}
             globalCurrency={context.globalCurrency}
+            monthlyGoal={context.userGoal}
             availableCategories={context.allCategories}
         />
     );

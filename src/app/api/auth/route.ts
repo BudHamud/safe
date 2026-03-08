@@ -1,24 +1,34 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { supabaseAdmin } from '../../../lib/supabase-server';
+import { createSupabaseAdminClient } from '../../../lib/supabase-server';
 import bcrypt from 'bcryptjs';
 
 export async function POST(req: Request) {
     try {
-        const { username, password, action } = await req.json();
+        const supabaseAdmin = createSupabaseAdminClient();
+        const { username, email, password, monthlyGoal, action } = await req.json();
 
         if (!username || !password) {
             return NextResponse.json({ error: 'Faltan credenciales' }, { status: 400 });
         }
 
+        if (action === 'register' && !email) {
+            return NextResponse.json({ error: 'Falta el email' }, { status: 400 });
+        }
+
+        const normalizedUsername = String(username).trim();
+        const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+        const parsedGoal = Number(monthlyGoal);
+        const nextMonthlyGoal = Number.isFinite(parsedGoal) && parsedGoal > 0 ? parsedGoal : 0;
+
         // Convertir username en email interno para Supabase Auth
         // Esto mantiene compatibilidad con el sistema de usernames existente
-        const internalEmail = `${username.toLowerCase().replace(/[^a-z0-9]/g, '_')}@gastosapp.internal`;
+        const internalEmail = `${normalizedUsername.toLowerCase().replace(/[^a-z0-9]/g, '_')}@gastosapp.internal`;
 
         if (action === 'register') {
             // PASO 0: Verificar si el usuario ya existe
             const { data: existing, error: existingError } = await supabaseAdmin
-                .from('User').select('id').eq('username', username).maybeSingle();
+                .from('User').select('id').eq('username', normalizedUsername).maybeSingle();
             if (existingError) {
                 console.error('[AUTH REGISTER] PASO 0 - Error al consultar tabla User:', existingError);
                 return NextResponse.json({ error: `[PASO 0] ${existingError.message}` }, { status: 500 });
@@ -28,9 +38,9 @@ export async function POST(req: Request) {
             }
 
             // PASO 1: Crear usuario en Supabase Auth
-            console.log('[AUTH REGISTER] PASO 1 - Creando usuario en Supabase Auth:', internalEmail);
+            console.log('[AUTH REGISTER] PASO 1 - Creando usuario en Supabase Auth:', normalizedEmail);
             const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-                email: internalEmail,
+                email: normalizedEmail,
                 password,
                 email_confirm: true,
             });
@@ -49,7 +59,7 @@ export async function POST(req: Request) {
             const newUserId = randomUUID();
             const { data: newUser, error: createError } = await supabaseAdmin
                 .from('User')
-                .insert({ id: newUserId, username, password: hashedPassword, authId: authData.user.id })
+                .insert({ id: newUserId, username: normalizedUsername, password: hashedPassword, authId: authData.user.id, monthlyGoal: nextMonthlyGoal })
                 .select('id, username, monthlyGoal')
                 .single();
 
@@ -64,7 +74,7 @@ export async function POST(req: Request) {
             // PASO 3: Sign-in para obtener el JWT real
             console.log('[AUTH REGISTER] PASO 3 - signInWithPassword...');
             const { data: signIn, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
-                email: internalEmail,
+                email: normalizedEmail,
                 password,
             });
 
@@ -83,10 +93,17 @@ export async function POST(req: Request) {
 
         if (action === 'login') {
             const { data: user } = await supabaseAdmin
-                .from('User').select('id, username, password, monthlyGoal, authId').eq('username', username).maybeSingle();
+                .from('User').select('id, username, password, monthlyGoal, authId').eq('username', normalizedUsername).maybeSingle();
 
             if (!user) {
                 return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
+            }
+
+            let authEmail = internalEmail;
+
+            if (user.authId) {
+                const { data: authUserData } = await supabaseAdmin.auth.admin.getUserById(user.authId);
+                authEmail = authUserData?.user?.email || internalEmail;
             }
 
             let passwordValid: boolean;
@@ -95,7 +112,7 @@ export async function POST(req: Request) {
                 // Usuario con Supabase Auth — verificar contraseña directamente contra Supabase.
                 // Esto cubre casos donde el campo password es un placeholder (ej: creado via script).
                 const { error: signInCheckError } = await supabaseAdmin.auth.signInWithPassword({
-                    email: internalEmail,
+                    email: authEmail,
                     password,
                 });
                 passwordValid = !signInCheckError;
@@ -129,7 +146,7 @@ export async function POST(req: Request) {
 
             // Obtener JWT real de Supabase
             const { data: signIn, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
-                email: internalEmail,
+                email: authEmail,
                 password,
             });
 

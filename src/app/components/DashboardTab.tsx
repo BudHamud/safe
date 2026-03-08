@@ -55,7 +55,7 @@ export const DashboardTab = ({
 }: DashboardTabProps) => {
     const router = useRouter();
     const windowWidth = useWindowWidth();
-    const { t } = useLanguage();
+    const { t, lang } = useLanguage();
 
     // Responsive breakpoints
     const isMobile = windowWidth < 640;   // phones
@@ -67,8 +67,21 @@ export const DashboardTab = ({
     const now = new Date();
     const curMonth = now.getMonth();
     const curYear = now.getFullYear();
-    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    const curMonthName = monthNames[curMonth];
+    const curMonthName = new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'es-AR', { month: 'long' }).format(now);
+
+    const getTxAmountForCurrency = (tx: Transaction) => {
+        if (globalCurrency === 'USD') return tx.amountUSD ?? tx.amount;
+        if (globalCurrency === 'ARS') return tx.amountARS ?? tx.amount;
+        if (globalCurrency === 'EUR') return tx.amountEUR ?? tx.amount;
+        return tx.amountILS ?? tx.amount;
+    };
+
+    const getRecurringLabel = (periodicity?: number) => {
+        if (!periodicity) return '';
+        if (periodicity === 12) return t('dashboard.annual');
+        if (periodicity === 6) return t('dashboard.biannual');
+        return `${t('dashboard.every_n_months')} ${periodicity}M`;
+    };
 
     const parseTxDate = (d: string) => {
         if (!d || d === 'Hoy') return new Date();
@@ -279,7 +292,7 @@ export const DashboardTab = ({
                                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--primary)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--primary)'; }}
                                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)'; }}
                             >
-                                Configurar límite
+                                {t('dashboard.configure_limit')}
                             </button>
                         </div>
                     ) : (
@@ -447,7 +460,7 @@ export const DashboardTab = ({
                                         } else if (setIsAddModalOpen && setAddModalInitialData) {
                                             setAddModalInitialData({
                                                 desc: tx.desc,
-                                                amount: tx.amountILS,
+                                                amount: getTxAmountForCurrency(tx),
                                                 tag: tx.tag,
                                                 icon: tx.icon,
                                                 type: 'expense',
@@ -478,13 +491,13 @@ export const DashboardTab = ({
                                             </div>
                                             {tx.goalType === 'periodo' && (
                                                 <span style={{ fontSize: '0.45rem', background: 'var(--surface-alt)', color: 'var(--text-muted)', border: '1px solid var(--border)', padding: '0.05rem 0.25rem', borderRadius: '3px', fontWeight: 900 }}>
-                                                    {tx.periodicity === 12 ? 'ANUAL' : tx.periodicity === 6 ? 'SEMESTRAL' : `CADA ${tx.periodicity}M`}
+                                                    {getRecurringLabel(tx.periodicity)}
                                                 </span>
                                             )}
                                             {isPaid ? (
-                                                <span style={{ fontSize: '0.45rem', background: 'var(--primary)', color: 'var(--primary-text)', padding: '0.1rem 0.3rem', borderRadius: '3px', fontWeight: 900 }}>PAGADO</span>
+                                                <span style={{ fontSize: '0.45rem', background: 'var(--primary)', color: 'var(--primary-text)', padding: '0.1rem 0.3rem', borderRadius: '3px', fontWeight: 900 }}>{t('dashboard.paid')}</span>
                                             ) : (
-                                                <span style={{ fontSize: '0.45rem', background: 'var(--surface-alt)', color: 'var(--accent)', border: '1px solid var(--accent)', padding: '0.05rem 0.25rem', borderRadius: '3px', fontWeight: 900 }}>PENDIENTE</span>
+                                                <span style={{ fontSize: '0.45rem', background: 'var(--surface-alt)', color: 'var(--accent)', border: '1px solid var(--accent)', padding: '0.05rem 0.25rem', borderRadius: '3px', fontWeight: 900 }}>{t('dashboard.pending')}</span>
                                             )}
                                         </div>
                                         <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 600 }}>
@@ -493,7 +506,7 @@ export const DashboardTab = ({
                                     </div>
                                     {/* amount */}
                                     <div style={{ fontSize: '0.8rem', fontWeight: 900, color: isPaid ? 'var(--primary)' : 'var(--accent)', flexShrink: 0, fontFamily: 'var(--font-display)' }}>
-                                        {formatCurrency(tx.amount, sym)}
+                                        {formatCurrency(getTxAmountForCurrency(tx), sym)}
                                     </div>
                                 </div>
                             );

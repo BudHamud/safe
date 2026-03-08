@@ -7,6 +7,7 @@ import {
     ColumnMapping, parseExcelRowMapped,
     MonthBlock, buildImportReview, ImportedRow,
 } from './movements.utils';
+import { useLanguage } from '../../context/LanguageContext';
 
 // ─── Import draft ─────────────────────────────────────────────────────────────
 
@@ -57,12 +58,18 @@ const getSidebarLabel = (
     showFilters: boolean,
     filterMonth: number | 'all',
     filterYear: number | 'all',
-    now: Date,
+    lang: 'es' | 'en',
+    historicalLabel: string,
 ): string => {
-    if (!showFilters) return `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
-    if (filterMonth !== 'all' && filterYear !== 'all') return `${MONTHS[filterMonth as number]} ${filterYear}`;
+    if (!showFilters) return historicalLabel;
+    if (filterMonth !== 'all' && filterYear !== 'all') {
+        const monthLabel = new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'es-AR', { month: 'short' })
+            .format(new Date(Number(filterYear), filterMonth as number, 1))
+            .replace('.', '');
+        return `${monthLabel.toUpperCase()} ${filterYear}`;
+    }
     if (filterYear !== 'all') return String(filterYear);
-    return 'Histórico';
+    return historicalLabel;
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -71,8 +78,10 @@ export const useMovementsLogic = (
     transactions: Transaction[],
     userId: string | null,
     globalCurrency: string,
+    monthlyGoal: number,
     onTransactionsUpdated: () => void,
 ) => {
+    const { lang, t } = useLanguage();
     const now = new Date();
     const sym = globalCurrency === 'ILS' ? '₪' : globalCurrency === 'EUR' ? '€' : '$';
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -81,7 +90,6 @@ export const useMovementsLogic = (
     const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
 
     const ITEMS_PER_PAGE = 10;
-    const savedGoal = typeof window !== 'undefined' ? Number(localStorage.getItem('monthlyGoal') ?? 0) : 0;
 
     // ── Filter state ──────────────────────────────────────────────────────────
     const [filters, setFilters] = useState<FilterState>({
@@ -132,8 +140,8 @@ export const useMovementsLogic = (
     const sidebarTxs = filteredTxs;
     const sidebarLabel = search.trim()
         ? `"${search.trim()}"`
-        : getSidebarLabel(showFilters, filterMonth, filterYear, now);
-    const sidebarIsMonth = !showFilters || (filterYear !== 'all' && filterMonth !== 'all');
+        : getSidebarLabel(showFilters, filterMonth, filterYear, lang, t('movements.historical'));
+    const sidebarIsMonth = filterYear !== 'all' && filterMonth !== 'all';
 
     const sidebarIncome = sumBy(sidebarTxs, 'income');
     const sidebarExpense = sumBy(sidebarTxs, 'expense');
@@ -143,7 +151,7 @@ export const useMovementsLogic = (
     const totalExp = fixedAmt + varAmt || 1;
 
     const goalSpent = sidebarTxs.filter(t => t.type === 'expense' && !t.excludeFromBudget).reduce((s, t) => s + t.amount, 0);
-    const goalPct = sidebarIsMonth && savedGoal > 0 ? Math.min((goalSpent / savedGoal) * 100, 100) : 0;
+    const goalPct = sidebarIsMonth && monthlyGoal > 0 ? Math.min((goalSpent / monthlyGoal) * 100, 100) : 0;
 
     const catTotals = sidebarTxs
         .filter(t => t.type === 'expense')
@@ -162,7 +170,7 @@ export const useMovementsLogic = (
         varAmt,
         goalPct,
         goalSpent,
-        goalLimit: savedGoal,
+        goalLimit: monthlyGoal,
         topCats,
         maxCat: topCats[0]?.[1] ?? 1,
     };

@@ -86,7 +86,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const [userId, setUserId] = useState<string | null>(null);
     const [userName, setUserName] = useState<string | null>(null);
     const [accessToken, setAccessToken] = useState<string | null>(null);
-    const [userGoal, setUserGoal] = useState<number>(3000);
+    const [userGoal, setUserGoal] = useState<number>(0);
     const [theme, setTheme] = useState("dark");
     const [transactions, setTransactions] = useState<Transaction[]>([])
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -111,12 +111,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setUserId(null);
         setUserName(null);
         setAccessToken(null);
+        setUserGoal(0);
         setTransactions([]);
         setSelectedTransaction(null);
         setPendingOpsCount(0);
         localStorage.removeItem("financeUserId");
         localStorage.removeItem("financeUserName");
         localStorage.removeItem("financeAccessToken");
+        localStorage.removeItem("monthlyGoal");
     };
 
     useEffect(() => {
@@ -187,7 +189,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             }
             if (res.ok) {
                 const data = await res.json();
-                if (data.monthlyGoal) setUserGoal(data.monthlyGoal);
+                const nextGoal = Number(data.monthlyGoal ?? 0);
+                const safeGoal = Number.isFinite(nextGoal) ? nextGoal : 0;
+                setUserGoal(safeGoal);
+                localStorage.setItem('monthlyGoal', String(safeGoal));
             }
         } catch (e) {
             console.error(e);

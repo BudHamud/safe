@@ -9,13 +9,13 @@ type AuthModalProps = {
 export const AuthModal = ({ onLogin }: AuthModalProps) => {
     const { t } = useLanguage();
     const [isRegister, setIsRegister] = useState(false);
-    const [formData, setFormData] = useState({ username: '', password: '' });
+    const [formData, setFormData] = useState({ username: '', email: '', password: '', wantsGoal: false, monthlyGoal: '' });
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.username || !formData.password) {
+        if (!formData.username || !formData.password || (isRegister && !formData.email)) {
             alert(t('auth.complete_fields'));
             return;
         }
@@ -90,6 +90,56 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
                             />
                         </div>
                     </div>
+
+                    {isRegister && (
+                        <>
+                            <div className="auth-field">
+                                <span className="auth-label">{t('auth.email_label')}</span>
+                                <div className="auth-input-wrap">
+                                    <input
+                                        type="email"
+                                        className="auth-input"
+                                        placeholder={t('auth.email_placeholder')}
+                                        value={formData.email}
+                                        onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                        autoComplete="email"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="auth-field">
+                                <div className="auth-field-header">
+                                    <span className="auth-label">{t('auth.goal_question')}</span>
+                                </div>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-main)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.55rem' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.wantsGoal}
+                                        onChange={e => setFormData({ ...formData, wantsGoal: e.target.checked, monthlyGoal: e.target.checked ? formData.monthlyGoal : '' })}
+                                        style={{ accentColor: 'var(--primary)' }}
+                                    />
+                                    {t('auth.goal_toggle')}
+                                </label>
+                                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: formData.wantsGoal ? '0.6rem' : 0 }}>
+                                    {t('auth.goal_help')}
+                                </div>
+                                {formData.wantsGoal && (
+                                    <div className="auth-input-wrap">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            className="auth-input"
+                                            placeholder={t('auth.goal_placeholder')}
+                                            value={formData.monthlyGoal}
+                                            onChange={e => setFormData({ ...formData, monthlyGoal: e.target.value })}
+                                            inputMode="decimal"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
 
                     {/* Password */}
                     <div className="auth-field">

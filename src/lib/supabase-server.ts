@@ -3,11 +3,14 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-// Service role client — bypasea RLS, solo usar en server-side
-// NUNCA exponer al cliente
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+// Service role client — bypasea RLS, solo usar en server-side.
+// Se expone también como factory para evitar reutilizar una sesión mutada entre requests.
+export const createSupabaseAdminClient = () => createClient(supabaseUrl, supabaseServiceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
 });
+
+// Cliente compartido para rutas que solo hacen operaciones admin/read-only.
+export const supabaseAdmin = createSupabaseAdminClient();
 
 // Verifica el JWT del usuario y retorna el user autenticado
 // Lanza un error si el token es inválido o expiró
