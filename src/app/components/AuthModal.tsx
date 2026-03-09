@@ -4,6 +4,22 @@ import { Logo } from './Logo';
 import { useLanguage } from '../../context/LanguageContext';
 import { useDialog } from '../../context/DialogContext';
 
+type AuthErrorCode =
+    | 'missing_credentials'
+    | 'missing_email'
+    | 'user_exists'
+    | 'create_auth_error'
+    | 'create_profile_error'
+    | 'invalid_credentials'
+    | 'invalid_action'
+    | 'server_error';
+
+type AuthErrorResponse = {
+    error?: string;
+    errorCode?: AuthErrorCode;
+    errorDetail?: string;
+};
+
 type AuthModalProps = {
     onLogin: (userId: string, username: string, token?: string) => void;
 };
@@ -14,6 +30,29 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
     const [formData, setFormData] = useState({ username: '', email: '', password: '', wantsGoal: false, monthlyGoal: '' });
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+
+    const getAuthErrorMessage = (error: AuthErrorResponse) => {
+        switch (error.errorCode) {
+            case 'missing_credentials':
+                return t('auth.missing_credentials');
+            case 'missing_email':
+                return t('auth.missing_email');
+            case 'user_exists':
+                return t('auth.user_exists');
+            case 'create_auth_error':
+                return error.errorDetail ? `${t('auth.create_auth_error')}\n${error.errorDetail}` : t('auth.create_auth_error');
+            case 'create_profile_error':
+                return error.errorDetail ? `${t('auth.create_profile_error')}\n${error.errorDetail}` : t('auth.create_profile_error');
+            case 'invalid_credentials':
+                return t('auth.invalid_credentials');
+            case 'invalid_action':
+                return t('auth.invalid_action');
+            case 'server_error':
+                return error.errorDetail ? `${t('auth.server_error')}\n${error.errorDetail}` : t('auth.server_error');
+            default:
+                return error.error || t('auth.error');
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -30,7 +69,7 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
             });
             const data = await res.json();
             if (!res.ok) {
-                await dialog.alert(data.error || t('auth.error'));
+                await dialog.alert(getAuthErrorMessage(data));
                 return;
             }
             onLogin(data.id, data.username, data.access_token);

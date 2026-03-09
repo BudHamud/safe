@@ -79,7 +79,7 @@ export const DialogProvider = ({ children }: { children: React.ReactNode }) => {
                         alignItems: 'center',
                         justifyContent: 'center',
                         padding: '1rem',
-                        zIndex: 4000,
+                        zIndex: 50000,
                         backdropFilter: 'blur(3px)',
                     }}
                 >

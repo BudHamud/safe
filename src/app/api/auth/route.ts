@@ -3,17 +3,31 @@ import { randomUUID } from 'crypto';
 import { createSupabaseAdminClient } from '../../../lib/supabase-server';
 import bcrypt from 'bcryptjs';
 
+type AuthErrorCode =
+    | 'missing_credentials'
+    | 'missing_email'
+    | 'user_exists'
+    | 'create_auth_error'
+    | 'create_profile_error'
+    | 'invalid_credentials'
+    | 'invalid_action'
+    | 'server_error';
+
+const errorResponse = (status: number, errorCode: AuthErrorCode, errorDetail?: string) => {
+    return NextResponse.json(errorDetail ? { errorCode, errorDetail } : { errorCode }, { status });
+};
+
 export async function POST(req: Request) {
     try {
         const supabaseAdmin = createSupabaseAdminClient();
         const { username, email, password, monthlyGoal, action } = await req.json();
 
         if (!username || !password) {
-            return NextResponse.json({ error: 'Faltan credenciales' }, { status: 400 });
+            return errorResponse(400, 'missing_credentials');
         }
 
         if (action === 'register' && !email) {
-            return NextResponse.json({ error: 'Falta el email' }, { status: 400 });
+            return errorResponse(400, 'missing_email');
         }
 
         const normalizedUsername = String(username).trim();
@@ -31,10 +45,10 @@ export async function POST(req: Request) {
                 .from('User').select('id').eq('username', normalizedUsername).maybeSingle();
             if (existingError) {
                 console.error('[AUTH REGISTER] PASO 0 - Error al consultar tabla User:', existingError);
-                return NextResponse.json({ error: `[PASO 0] ${existingError.message}` }, { status: 500 });
+                return errorResponse(500, 'server_error', `[PASO 0] ${existingError.message}`);
             }
             if (existing) {
-                return NextResponse.json({ error: 'El usuario ya existe' }, { status: 400 });
+                return errorResponse(400, 'user_exists');
             }
 
             // PASO 1: Crear usuario en Supabase Auth
@@ -47,7 +61,7 @@ export async function POST(req: Request) {
 
             if (authError || !authData.user) {
                 console.error('[AUTH REGISTER] PASO 1 FALLÓ - authError:', authError);
-                return NextResponse.json({ error: `[PASO 1] ${authError?.message ?? 'Error creando usuario en Auth'}` }, { status: 400 });
+                return errorResponse(400, 'create_auth_error', `[PASO 1] ${authError?.message ?? 'Auth user creation failed'}`);
             }
             console.log('[AUTH REGISTER] PASO 1 OK - auth.user.id:', authData.user.id);
 
@@ -67,7 +81,7 @@ export async function POST(req: Request) {
                 console.error('[AUTH REGISTER] PASO 2 FALLÓ - createError:', createError);
                 // Limpiar el usuario de Auth si la inserción en tabla falló
                 await supabaseAdmin.auth.admin.deleteUser(authData.user.id).catch(() => { });
-                return NextResponse.json({ error: `[PASO 2] ${createError?.message ?? 'Error creando perfil de usuario'}` }, { status: 500 });
+                return errorResponse(500, 'create_profile_error', `[PASO 2] ${createError?.message ?? 'User profile creation failed'}`);
             }
             console.log('[AUTH REGISTER] PASO 2 OK - newUser.id:', newUser.id);
 
@@ -96,7 +110,7 @@ export async function POST(req: Request) {
                 .from('User').select('id, username, password, monthlyGoal, authId').eq('username', normalizedUsername).maybeSingle();
 
             if (!user) {
-                return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
+                return errorResponse(401, 'invalid_credentials');
             }
 
             let authEmail = internalEmail;
@@ -129,7 +143,7 @@ export async function POST(req: Request) {
             }
 
             if (!passwordValid) {
-                return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
+                return errorResponse(401, 'invalid_credentials');
             }
 
             // Si no tiene authId aún (usuario legacy con password válido), crearlo en Supabase
@@ -165,13 +179,10 @@ export async function POST(req: Request) {
             });
         }
 
-        return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
+        return errorResponse(400, 'invalid_action');
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[AUTH GLOBAL CATCH]', message, err);
-        return NextResponse.json(
-            { error: process.env.NODE_ENV === 'development' ? `[CATCH] ${message}` : 'Error del servidor' },
-            { status: 500 }
-        );
+        return errorResponse(500, 'server_error', process.env.NODE_ENV === 'development' ? `[CATCH] ${message}` : undefined);
     }
 }
