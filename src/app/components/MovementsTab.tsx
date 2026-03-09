@@ -252,13 +252,13 @@ const SidebarPanel = ({ sidebar, sym, fullWidth }: { sidebar: SidebarData; sym: 
 
 // ─── Column mapping modal ─────────────────────────────────────────────────────
 
-const MAPPING_FIELDS: { key: keyof ColumnMapping; label: string; required?: boolean }[] = [
-    { key: 'dateCol', label: 'Fecha', required: true },
-    { key: 'descCol', label: 'Descripción' },
-    { key: 'debitCol', label: 'Monto (egreso)' },
-    { key: 'creditCol', label: 'Monto (ingreso)' },
-    { key: 'detailsCol', label: 'Detalles' },
-    { key: 'categoryCol', label: 'Categoría' },
+const MAPPING_FIELDS: { key: keyof ColumnMapping; labelKey: string; required?: boolean }[] = [
+    { key: 'dateCol', labelKey: 'field.date', required: true },
+    { key: 'descCol', labelKey: 'field.description' },
+    { key: 'debitCol', labelKey: 'movements.import_debit_column' },
+    { key: 'creditCol', labelKey: 'movements.import_credit_column' },
+    { key: 'detailsCol', labelKey: 'field.notes' },
+    { key: 'categoryCol', labelKey: 'field.category' },
 ];
 
 const autoDetect = (headers: string[], candidates: string[]): string => {
@@ -274,6 +274,7 @@ const ColumnMapModal = ({
     onCancel: () => void;
     importProgress: { done: number; total: number } | null;
 }) => {
+    const { t } = useLanguage();
     const buildDefault = (): ColumnMapping => ({
         dateCol: autoDetect(headers, ['date', 'fecha', 'dia']),
         descCol: autoDetect(headers, ['transaction', 'transactio', 'description', 'descripcion', 'concepto', 'titulo', 'desc']),
@@ -304,17 +305,17 @@ const ColumnMapModal = ({
                 {/* Header */}
                 <div style={{ marginBottom: '1.25rem' }}>
                     <div style={{ fontSize: '0.55rem', fontWeight: 800, color: TOKEN.green, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
-                        Importar Excel
+                        {t('movements.import_excel')}
                     </div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 900, color: TOKEN.text }}>Configurar columnas</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 900, color: TOKEN.text }}>{t('movements.import_configure_columns')}</div>
                     <div style={{ fontSize: '0.68rem', color: TOKEN.muted, marginTop: '0.25rem' }}>
-                        Asigná cada campo al nombre de columna de tu archivo.
+                        {t('movements.import_configure_columns_help')}
                     </div>
                 </div>
 
                 {/* Column chips */}
                 <div style={{ marginBottom: '1.1rem', padding: '0.7rem 0.85rem', background: TOKEN.surface, borderRadius: '8px', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: '0.55rem', fontWeight: 700, color: TOKEN.muted, textTransform: 'uppercase', marginBottom: '0.45rem' }}>Columnas detectadas</div>
+                    <div style={{ fontSize: '0.55rem', fontWeight: 700, color: TOKEN.muted, textTransform: 'uppercase', marginBottom: '0.45rem' }}>{t('movements.import_detected_columns')}</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                         {headers.map(h => (
                             <span key={h} style={{ fontSize: '0.63rem', fontWeight: 700, color: TOKEN.text, background: 'var(--surface-hover)', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.18rem 0.45rem' }}>
@@ -326,13 +327,13 @@ const ColumnMapModal = ({
 
                 {/* Field mappings */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.25rem' }}>
-                    {MAPPING_FIELDS.map(({ key, label, required }) => (
+                    {MAPPING_FIELDS.map(({ key, labelKey, required }) => (
                         <div key={key} style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', alignItems: 'center', gap: '0.75rem' }}>
                             <span style={{ fontSize: '0.7rem', fontWeight: 700, color: required ? TOKEN.text : TOKEN.muted }}>
-                                {label}{required && <span style={{ color: TOKEN.red }}> *</span>}
+                                {t(labelKey as any)}{required && <span style={{ color: TOKEN.red }}> *</span>}
                             </span>
                             <select value={mapping[key]} onChange={set(key)} style={{ ...selectStyle, width: '100%' }}>
-                                <option value="">— No usar —</option>
+                                <option value="">{t('movements.import_do_not_use')}</option>
                                 {headers.map(h => <option key={h} value={h}>{h}</option>)}
                             </select>
                         </div>
@@ -341,7 +342,7 @@ const ColumnMapModal = ({
 
                 {!canConfirm && (
                     <div style={{ fontSize: '0.65rem', color: TOKEN.red, marginBottom: '0.85rem', fontWeight: 700 }}>
-                        Seleccioná al menos Fecha y un campo de monto.
+                        {t('movements.import_select_date_and_amount')}
                     </div>
                 )}
 
@@ -352,9 +353,9 @@ const ColumnMapModal = ({
                     {isImporting && (
                         <div style={{ marginBottom: '0.5rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                                <span style={{ fontSize: '0.63rem', fontWeight: 700, color: TOKEN.green }}>Importando...</span>
+                                <span style={{ fontSize: '0.63rem', fontWeight: 700, color: TOKEN.green }}>{t('movements.import_in_progress')}</span>
                                 <span style={{ fontSize: '0.63rem', fontWeight: 800, color: TOKEN.text }}>
-                                    {importProgress!.done} / {importProgress!.total} filas ({progressPct}%)
+                                    {t('movements.import_progress_rows', { done: importProgress!.done, total: importProgress!.total, percent: progressPct })}
                                 </span>
                             </div>
                             <div style={{ height: '5px', background: 'var(--surface-alt)', borderRadius: '3px', overflow: 'hidden' }}>
@@ -369,7 +370,7 @@ const ColumnMapModal = ({
                     )}
 
                     <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end' }}>
-                        <button onClick={onCancel} disabled={isImporting} style={{ ...iconBtnStyle(), opacity: isImporting ? 0.4 : 1, cursor: isImporting ? 'default' : 'pointer' }}>Cancelar</button>
+                        <button onClick={onCancel} disabled={isImporting} style={{ ...iconBtnStyle(), opacity: isImporting ? 0.4 : 1, cursor: isImporting ? 'default' : 'pointer' }}>{t('btn.cancel')}</button>
                         <button
                             onClick={() => canConfirm && !isImporting && onConfirm(mapping)}
                             style={{
@@ -381,7 +382,7 @@ const ColumnMapModal = ({
                                 cursor: canConfirm && !isImporting ? 'pointer' : 'default',
                             }}
                         >
-                            {isImporting ? `Importando... ${progressPct}%` : 'Importar'}
+                            {isImporting ? `${t('movements.import_in_progress')} ${progressPct}%` : t('movements.import_confirm')}
                         </button>
                     </div>
                 </div>
@@ -401,6 +402,7 @@ const ImportReviewModal = ({
     onCancel: () => void;
     importProgress: { done: number; total: number } | null;
 }) => {
+    const { t } = useLanguage();
     // Selection state: monthKey → Set of selected row indexes
     const [selected, setSelected] = useState<Map<string, Set<number>>>(() => {
         const m = new Map<string, Set<number>>();
@@ -453,15 +455,15 @@ const ImportReviewModal = ({
     const DiffBadge = ({ excelExp, existExp }: { excelExp: number; existExp: number }) => {
         const diff = excelExp - existExp;
         const color = Math.abs(diff) < 0.01 ? TOKEN.muted : diff > 0 ? TOKEN.red : TOKEN.green;
-        const label = Math.abs(diff) < 0.01 ? 'IGUAL' : diff > 0 ? `+${formatCurrency(diff, sym)}` : formatCurrency(diff, sym);
+        const label = Math.abs(diff) < 0.01 ? t('movements.import_equal') : diff > 0 ? `+${formatCurrency(diff, sym)}` : formatCurrency(diff, sym);
         return <span style={{ fontSize: '0.55rem', fontWeight: 800, color, background: `${color}22`, padding: '0.1rem 0.35rem', borderRadius: '3px' }}>{label}</span>;
     };
 
     const MonthStatusBadge = ({ b }: { b: MonthBlock }) => {
-        if (b.existingTxs.length === 0) return <span style={{ fontSize: '0.5rem', fontWeight: 800, color: TOKEN.green, background: 'var(--surface-alt)', padding: '0.1rem 0.3rem', borderRadius: '3px' }}>NUEVO</span>;
+        if (b.existingTxs.length === 0) return <span style={{ fontSize: '0.5rem', fontWeight: 800, color: TOKEN.green, background: 'var(--surface-alt)', padding: '0.1rem 0.3rem', borderRadius: '3px' }}>{t('movements.import_new')}</span>;
         const diff = Math.abs(b.excelExpense - b.existingExpense);
-        if (diff < 0.01) return <span style={{ fontSize: '0.5rem', fontWeight: 800, color: TOKEN.muted, background: 'var(--surface-alt)', padding: '0.1rem 0.3rem', borderRadius: '3px' }}>CUBIERTO</span>;
-        return <span style={{ fontSize: '0.5rem', fontWeight: 800, color: 'var(--accent)', background: 'var(--surface-alt)', padding: '0.1rem 0.3rem', borderRadius: '3px' }}>DIFERENCIA</span>;
+        if (diff < 0.01) return <span style={{ fontSize: '0.5rem', fontWeight: 800, color: TOKEN.muted, background: 'var(--surface-alt)', padding: '0.1rem 0.3rem', borderRadius: '3px' }}>{t('movements.import_covered')}</span>;
+        return <span style={{ fontSize: '0.5rem', fontWeight: 800, color: 'var(--accent)', background: 'var(--surface-alt)', padding: '0.1rem 0.3rem', borderRadius: '3px' }}>{t('movements.import_difference')}</span>;
     };
 
     return (
@@ -470,16 +472,21 @@ const ImportReviewModal = ({
 
                 {/* Header */}
                 <div style={{ padding: '1.1rem 1.4rem', borderBottom: `1px solid ${TOKEN.border}`, flexShrink: 0 }}>
-                    <div style={{ fontSize: '0.55rem', fontWeight: 800, color: TOKEN.green, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Importar Excel — Paso 2 de 2</div>
+                    <div style={{ fontSize: '0.55rem', fontWeight: 800, color: TOKEN.green, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>{t('movements.import_review_step')}</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: '1.05rem', fontWeight: 900, color: TOKEN.text }}>Revisión por meses</div>
+                        <div style={{ fontSize: '1.05rem', fontWeight: 900, color: TOKEN.text }}>{t('movements.import_review_title')}</div>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button onClick={() => selectAll(true)} disabled={isImporting} style={{ ...iconBtnStyle(), fontSize: '0.6rem' }}>✓ Todo</button>
-                            <button onClick={() => selectAll(false)} disabled={isImporting} style={{ ...iconBtnStyle(), fontSize: '0.6rem' }}>✗ Nada</button>
+                            <button onClick={() => selectAll(true)} disabled={isImporting} style={{ ...iconBtnStyle(), fontSize: '0.6rem' }}>✓ {t('movements.import_select_all')}</button>
+                            <button onClick={() => selectAll(false)} disabled={isImporting} style={{ ...iconBtnStyle(), fontSize: '0.6rem' }}>✗ {t('movements.import_select_none')}</button>
                         </div>
                     </div>
                     <div style={{ fontSize: '0.65rem', color: TOKEN.muted, marginTop: '0.2rem' }}>
-                        {blocks.length} {blocks.length === 1 ? 'mes' : 'meses'} detectados · {totalSelected} / {totalRows} filas seleccionadas
+                        {t('movements.import_months_detected', {
+                            count: blocks.length,
+                            unit: blocks.length === 1 ? t('movements.import_month_unit_one') : t('movements.import_month_unit_other'),
+                            selected: totalSelected,
+                            total: totalRows,
+                        })}
                     </div>
                 </div>
 
@@ -518,7 +525,7 @@ const ImportReviewModal = ({
                                         )}
                                     </div>
                                     <div style={{ fontSize: '0.55rem', color: TOKEN.muted, paddingLeft: '1.3rem', marginTop: '0.1rem' }}>
-                                        {sel.size}/{b.excelRows.length} sel.
+                                        {t('movements.import_selected_short', { selected: sel.size, total: b.excelRows.length })}
                                     </div>
                                 </div>
                             );
@@ -533,7 +540,7 @@ const ImportReviewModal = ({
                                 <div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                                         <div style={{ fontSize: '0.6rem', fontWeight: 800, color: TOKEN.green, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                                            Filas del Excel ({activeBlock.excelRows.length})
+                                            {t('movements.import_excel_rows', { count: activeBlock.excelRows.length })}
                                         </div>
                                         <DiffBadge excelExp={activeBlock.excelExpense} existExp={activeBlock.existingExpense} />
                                     </div>
@@ -552,7 +559,7 @@ const ImportReviewModal = ({
                                                         style={{ accentColor: TOKEN.green, flexShrink: 0 }}
                                                     />
                                                     <span style={{ fontSize: '0.6rem', color: TOKEN.muted, flexShrink: 0, minWidth: '54px' }}>{row.date}</span>
-                                                    <span style={{ flex: 1, fontSize: '0.68rem', fontWeight: 700, color: TOKEN.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.desc || '—'}</span>
+                                                    <span style={{ flex: 1, fontSize: '0.68rem', fontWeight: 700, color: TOKEN.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.desc || t('movements.import_empty_desc')}</span>
                                                     <span style={{ fontSize: '0.72rem', fontWeight: 900, flexShrink: 0, color: row.type === 'expense' ? TOKEN.red : TOKEN.green }}>
                                                         {row.type === 'expense' ? '-' : '+'}{formatCurrency(row.amount, sym)}
                                                     </span>
@@ -566,7 +573,7 @@ const ImportReviewModal = ({
                                 {activeBlock.existingTxs.length > 0 && (
                                     <div>
                                         <div style={{ fontSize: '0.6rem', fontWeight: 800, color: TOKEN.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-                                            Ya en la app ({activeBlock.existingTxs.length}) — referencia
+                                            {t('movements.import_existing_reference', { count: activeBlock.existingTxs.length })}
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                                             {activeBlock.existingTxs.slice(0, 20).map(tx => (
@@ -581,7 +588,7 @@ const ImportReviewModal = ({
                                             ))}
                                             {activeBlock.existingTxs.length > 20 && (
                                                 <div style={{ fontSize: '0.6rem', color: TOKEN.muted, padding: '0.3rem 0.65rem' }}>
-                                                    + {activeBlock.existingTxs.length - 20} más...
+                                                    {t('movements.import_more_count', { count: activeBlock.existingTxs.length - 20 })}
                                                 </div>
                                             )}
                                         </div>
@@ -598,8 +605,8 @@ const ImportReviewModal = ({
                     {isImporting && (
                         <div style={{ marginBottom: '0.65rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                                <span style={{ fontSize: '0.63rem', fontWeight: 700, color: TOKEN.green }}>Importando...</span>
-                                <span style={{ fontSize: '0.63rem', fontWeight: 800, color: TOKEN.text }}>{importProgress!.done} / {importProgress!.total} filas ({progressPct}%)</span>
+                                <span style={{ fontSize: '0.63rem', fontWeight: 700, color: TOKEN.green }}>{t('movements.import_in_progress')}</span>
+                                <span style={{ fontSize: '0.63rem', fontWeight: 800, color: TOKEN.text }}>{t('movements.import_progress_rows', { done: importProgress!.done, total: importProgress!.total, percent: progressPct })}</span>
                             </div>
                             <div style={{ height: '5px', background: 'var(--surface-alt)', borderRadius: '3px', overflow: 'hidden' }}>
                                 <div style={{ height: '100%', borderRadius: '3px', background: TOKEN.green, width: `${progressPct}%`, transition: 'width 0.3s ease' }} />
@@ -608,16 +615,16 @@ const ImportReviewModal = ({
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.65rem', color: TOKEN.muted, fontWeight: 700 }}>
-                            {totalSelected} fila{totalSelected !== 1 ? 's' : ''} a importar
+                            {t('movements.import_rows_to_import', { count: totalSelected, suffix: totalSelected !== 1 ? 's' : '' })}
                         </span>
                         <div style={{ display: 'flex', gap: '0.6rem' }}>
-                            <button onClick={onCancel} disabled={isImporting} style={{ ...iconBtnStyle(), opacity: isImporting ? 0.4 : 1 }}>Cancelar</button>
+                            <button onClick={onCancel} disabled={isImporting} style={{ ...iconBtnStyle(), opacity: isImporting ? 0.4 : 1 }}>{t('btn.cancel')}</button>
                             <button
                                 onClick={handleConfirm}
                                 disabled={isImporting || totalSelected === 0}
                                 style={{ ...iconBtnStyle(), background: totalSelected > 0 && !isImporting ? TOKEN.green : 'var(--border)', color: totalSelected > 0 && !isImporting ? 'var(--primary-text)' : TOKEN.muted, border: `1px solid ${totalSelected > 0 && !isImporting ? TOKEN.green : 'var(--border)'}`, opacity: totalSelected > 0 && !isImporting ? 1 : 0.5, cursor: totalSelected > 0 && !isImporting ? 'pointer' : 'default' }}
                             >
-                                {isImporting ? `Importando... ${progressPct}%` : `Importar ${totalSelected} filas →`}
+                                {isImporting ? `${t('movements.import_in_progress')} ${progressPct}%` : t('movements.import_rows_button', { count: totalSelected })}
                             </button>
                         </div>
                     </div>
@@ -645,7 +652,7 @@ export const MovementsTab = ({
     transactions, onTransactionClick, userId, onTransactionsUpdated, globalCurrency, monthlyGoal, availableCategories,
 }: MovementsTabProps) => {
     const isMobile = useIsMobile();
-    const { t } = useLanguage();
+    const { t, lang } = useLanguage();
     const {
         filters, patch, setPage,
         allCategories, years, filteredTxs, paginated, totalPages,
@@ -658,6 +665,10 @@ export const MovementsTab = ({
 
     const { showFilters, search, filterMonth, filterYear, filterCategory, filterType, currentPage } = filters;
     const TYPE_LABELS: Record<string, string> = { all: t('movements.filter_all'), expense: `↓ ${t('movements.expenses')}`, income: `↑ ${t('movements.income')}` };
+    const monthOptions = Array.from({ length: 12 }, (_, index) => {
+        const label = new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'es-AR', { month: 'long' }).format(new Date(2026, index, 1));
+        return label.charAt(0).toUpperCase() + label.slice(1);
+    });
 
     return (
         <div data-color-zone="tx-rows" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -690,11 +701,11 @@ export const MovementsTab = ({
                         {!isMobile && t('movements.import_excel')}
                     </button>
 
-                    <button onClick={handleDeleteAll} style={{ ...iconBtnStyle(), background: 'var(--surface-alt)', border: `1px solid ${TOKEN.red}`, color: TOKEN.red }} title="Borrar TODOS los movimientos">
+                    <button onClick={handleDeleteAll} style={{ ...iconBtnStyle(), background: 'var(--surface-alt)', border: `1px solid ${TOKEN.red}`, color: TOKEN.red }} title={t('movements.delete_all_title')}>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
                         </svg>
-                        {!isMobile && "Borrar todo"}
+                        {!isMobile && t('movements.delete_all')}
                     </button>
 
                     <input type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} ref={fileInputRef} onChange={handleImport} />
@@ -726,7 +737,7 @@ export const MovementsTab = ({
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
                             <select value={filterMonth} onChange={e => patch({ filterMonth: e.target.value === 'all' ? 'all' : Number(e.target.value) })} style={selectStyle}>
                                 <option value="all">{t('movements.all_months')}</option>
-                                {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                                {monthOptions.map((month, i) => <option key={i} value={i}>{month}</option>)}
                             </select>
 
                             <select value={filterYear} onChange={e => patch({ filterYear: e.target.value === 'all' ? 'all' : Number(e.target.value) })} style={selectStyle}>

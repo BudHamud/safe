@@ -3,6 +3,7 @@ import './NewOrderModal.css';
 import { Transaction, Category } from "../../types";
 import { useAppContext } from "../../context/AppContext";
 import { useLanguage } from '../../context/LanguageContext';
+import { useDialog } from '../../context/DialogContext';
 
 type NewOrderModalProps = {
     isOpen: boolean;
@@ -16,6 +17,7 @@ type NewOrderModalProps = {
 export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, initialData, globalCurrency }: NewOrderModalProps) => {
     const { setCatSignal, userId } = useAppContext();
     const { lang, t } = useLanguage();
+    const dialog = useDialog();
     const [transactionType, setTransactionType] = useState('expense');
     const [goalType, setGoalType] = useState<'unico' | 'mensual' | 'periodo' | 'meta'>('unico');
     const getDefaultDate = () => new Date().toISOString().split('T')[0];
@@ -114,9 +116,9 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
             if (data.isLimited) {
                 setScanLimitReached(true);
                 setTicketPreview(null);
-                alert(`${data.error}`);
+                await dialog.alert(`${data.error}`);
             } else if (data.error) {
-                alert(`${t('order.scan_read_error_prefix')}: ${data.error}`);
+                await dialog.alert(`${t('order.scan_read_error_prefix')}: ${data.error}`);
             } else {
                 setFormData(prev => ({
                     ...prev,
@@ -132,7 +134,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
             }
         } catch (err) {
             console.error('scan-ticket error', err);
-            alert(t('order.scan_error'));
+            await dialog.alert(t('order.scan_error'));
         } finally {
             setAnalyzingImage(false);
         }
@@ -150,7 +152,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
     };
 
     const handleSubmit = async () => {
-        if (!formData.amount) { alert(t('order.amount_required')); return; }
+        if (!formData.amount) { await dialog.alert(t('order.amount_required')); return; }
         setIsProcessing(true);
 
         let amountUSD = 0, amountARS = 0, amountILS = 0, amountEUR = 0;
@@ -182,7 +184,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
             }
         } catch (error) {
             console.error("Error fetching rates", error);
-            alert(t('order.exchange_rate_error'));
+            await dialog.alert(t('order.exchange_rate_error'));
             setIsProcessing(false);
             return;
         }
@@ -191,7 +193,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
         let finalIcon = '💳';
 
         if (formData.tag === 'custom') {
-            if (!formData.customTag) { alert(t('order.custom_category_name_required')); setIsProcessing(false); return; }
+            if (!formData.customTag) { await dialog.alert(t('order.custom_category_name_required')); setIsProcessing(false); return; }
             finalTagLabel = formData.customTag.trim();
             finalIcon = formData.customIcon;
             const newCat: Category = { id: formData.customTag.toLowerCase().replace(/\s+/g, '-'), label: finalTagLabel, icon: finalIcon };
@@ -206,7 +208,7 @@ export const NewOrderModal = ({ isOpen, onClose, onSave, availableCategories, in
             const selectedCat = availableCategories.find(c => normalize(c.label) === target);
 
             if (!selectedCat) {
-                alert(t('order.select_category_required'));
+                await dialog.alert(t('order.select_category_required'));
                 setIsProcessing(false);
                 return;
             }

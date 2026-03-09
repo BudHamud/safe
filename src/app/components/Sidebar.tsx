@@ -13,7 +13,7 @@ type SidebarProps = {
     onLogout: () => void;
     onAddClick: () => void;
     travelModeStart: string;
-    toggleTravelMode: () => void;
+    toggleTravelMode: () => Promise<void>;
     pendingCount?: number;
     onBellClick?: () => void;
 };
@@ -61,7 +61,7 @@ export const Sidebar = ({
                 <button
                     className="sidebar-util-btn"
                     onClick={onBellClick}
-                    title="Notificaciones bancarias"
+                    title={t('sidebar.bank_notifications_title')}
                 >
                     <IconShapes type="bell" />
                     {pendingCount > 0 && (

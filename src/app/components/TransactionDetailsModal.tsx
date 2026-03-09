@@ -3,6 +3,7 @@ import { Transaction, Category } from "../../types";
 import { formatCurrency } from '../../lib/utils';
 import { formatDate } from './movements.utils';
 import { useLanguage } from '../../context/LanguageContext';
+import { useDialog } from '../../context/DialogContext';
 
 type TransactionDetailsModalProps = {
     transaction: Transaction | null;
@@ -76,6 +77,7 @@ const formatDateForInput = (d: string | undefined) => {
 
 export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpdate, globalCurrency, availableCategories }: TransactionDetailsModalProps) => {
     const { t } = useLanguage();
+    const dialog = useDialog();
     const sym = globalCurrency === 'ILS' ? '₪' : (globalCurrency === 'EUR' ? '€' : '$');
     const [viewMode, setViewMode] = useState<'details' | 'edit' | 'confirm_delete'>('details');
     const [formData, setFormData] = useState<Partial<Transaction>>({});
@@ -142,10 +144,10 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                 body: JSON.stringify(finalData)
             });
             if (res.ok) { onUpdate?.(); }
-            else { alert(t('details.save_error')); }
+            else { await dialog.alert(t('details.save_error')); }
         } catch (e) {
             console.error(e);
-            alert(t('details.recalculate_save_error'));
+            await dialog.alert(t('details.recalculate_save_error'));
         }
         setIsSaving(false);
     };
@@ -379,7 +381,7 @@ export const TransactionDetailsModal = ({ transaction, onClose, onDelete, onUpda
                             {(transaction.goalType === 'mensual' || transaction.goalType === 'periodo') && !transaction.isCancelled && (
                                 <button
                                     onClick={async () => {
-                                        if (confirm(t('details.cancel_recurrence_confirm'))) {
+                                        if (await dialog.confirm({ message: t('details.cancel_recurrence_confirm'), tone: 'danger' })) {
                                             const res = await fetch('/api/transactions', {
                                                 method: 'PUT',
                                                 headers: { 'Content-Type': 'application/json' },

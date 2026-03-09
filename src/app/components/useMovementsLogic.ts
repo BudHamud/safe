@@ -8,6 +8,7 @@ import {
     MonthBlock, buildImportReview, ImportedRow,
 } from './movements.utils';
 import { useLanguage } from '../../context/LanguageContext';
+import { useDialog } from '../../context/DialogContext';
 
 // ─── Import draft ─────────────────────────────────────────────────────────────
 
@@ -72,6 +73,10 @@ const getSidebarLabel = (
     return historicalLabel;
 };
 
+const isSameMonth = (date: Date, targetMonth: number, targetYear: number) => (
+    date.getMonth() === targetMonth && date.getFullYear() === targetYear
+);
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export const useMovementsLogic = (
@@ -82,6 +87,7 @@ export const useMovementsLogic = (
     onTransactionsUpdated: () => void,
 ) => {
     const { lang, t } = useLanguage();
+    const dialog = useDialog();
     const now = new Date();
     const sym = globalCurrency === 'ILS' ? '₪' : globalCurrency === 'EUR' ? '€' : '$';
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -137,11 +143,21 @@ export const useMovementsLogic = (
 
     // ── Derived: sidebar ──────────────────────────────────────────────────────
     // Always mirrors what's visible in the list (search + all filters included).
-    const sidebarTxs = filteredTxs;
+    const usingDefaultMonthSidebar = !showFilters && !search.trim();
+    const currentMonthTxs = transactions
+        .filter(t => isSameMonth(parseDate(t.date), now.getMonth(), now.getFullYear()))
+        .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
+
+    const sidebarTxs = usingDefaultMonthSidebar ? currentMonthTxs : filteredTxs;
     const sidebarLabel = search.trim()
         ? `"${search.trim()}"`
-        : getSidebarLabel(showFilters, filterMonth, filterYear, lang, t('movements.historical'));
-    const sidebarIsMonth = filterYear !== 'all' && filterMonth !== 'all';
+        : usingDefaultMonthSidebar
+            ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'es-AR', { month: 'short', year: 'numeric' })
+                .format(new Date(now.getFullYear(), now.getMonth(), 1))
+                .replace('.', '')
+                .toUpperCase()
+            : getSidebarLabel(showFilters, filterMonth, filterYear, lang, t('movements.historical'));
+    const sidebarIsMonth = usingDefaultMonthSidebar || (filterYear !== 'all' && filterMonth !== 'all');
 
     const sidebarIncome = sumBy(sidebarTxs, 'income');
     const sidebarExpense = sumBy(sidebarTxs, 'expense');
@@ -225,14 +241,14 @@ export const useMovementsLogic = (
                 }
 
                 if (detectedHeaders.length === 0) {
-                    alert('No se pudieron detectar columnas en el archivo.');
+                    void dialog.alert(t('movements.import_detect_columns_error'));
                     return;
                 }
 
                 setImportDraft({ headers: detectedHeaders, sheets, fallbackYear });
             } catch (err) {
                 console.error('Error reading Excel', err);
-                alert('Hubo un error al leer el archivo Excel.');
+                void dialog.alert(t('movements.import_read_error'));
             } finally {
                 if (fileInputRef.current) fileInputRef.current.value = '';
             }
@@ -261,7 +277,7 @@ export const useMovementsLogic = (
         }
 
         if (parsedRows.length === 0) {
-            alert('No se encontraron filas válidas en el archivo.');
+            void dialog.alert(t('movements.import_no_valid_rows'));
             return;
         }
 
@@ -304,13 +320,13 @@ export const useMovementsLogic = (
         } catch (err) {
             console.error('Error importing Excel', err);
             setImportProgress(null);
-            alert(err instanceof Error ? err.message : 'Hubo un error al importar.');
+            await dialog.alert(err instanceof Error ? err.message : t('movements.import_generic_error'));
         }
     };
 
     const handleDeleteAll = async () => {
         if (!userId) return;
-        if (!confirm('¿Estás seguro de que deseas borrar TODOS tus movimientos? Esta acción no se puede deshacer.')) return;
+        if (!await dialog.confirm({ message: t('movements.delete_all_confirm'), tone: 'danger' })) return;
 
         try {
             const res = await fetch(`/api/transactions?userId=${userId}&id=all`, { method: 'DELETE' });
@@ -321,7 +337,7 @@ export const useMovementsLogic = (
             }
         } catch (err) {
             console.error('Error al borrar todo', err);
-            alert('Hubo un error al borrar los movimientos.');
+            await dialog.alert(t('movements.delete_all_error'));
         }
     };
 

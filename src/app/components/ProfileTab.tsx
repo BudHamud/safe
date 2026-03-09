@@ -6,7 +6,9 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAppContext } from '../../context/AppContext';
 import { TranslationKey } from '../../context/LanguageContext';
 import { BankSyncExplainer } from './BankSyncExplainer';
+import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 import { useSubViewHistory } from '../../hooks/useSubViewHistory';
+import { useDialog } from '../../context/DialogContext';
 
 type ProfileTabProps = {
     userName: string;
@@ -29,11 +31,19 @@ export const ProfileTab = ({
     availableCategories, onCategoryChangeInfo
 }: ProfileTabProps) => {
     const { lang, setLang, t } = useLanguage();
+    const dialog = useDialog();
     const appContext = useAppContext();
     const { accessToken } = appContext;
+    const currencyOptions = [
+        { value: 'ILS', label: t('profile.currency_ils') },
+        { value: 'USD', label: t('profile.currency_usd') },
+        { value: 'EUR', label: t('profile.currency_eur') },
+        { value: 'ARS', label: t('profile.currency_ars') },
+    ] as const;
 
     const [viewMode, setViewMode] = useState<'menu' | 'categories' | 'notifications' | 'goal' | 'identity' | 'sync' | 'colors'>('menu');
     const [isExplainerOpen, setIsExplainerOpen] = useState(false);
+    const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<{ oldTag: string; newTag: string; newIcon: string } | null>(null);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
@@ -107,9 +117,13 @@ export const ProfileTab = ({
     };
     const toggleAutoAdd = (val: boolean) => {
         if (val) {
-            const confirmed = window.confirm(t('profile.auto_add_confirm'));
-            if (!confirmed) return;
-            localStorage.setItem('bankAutoAddConsentAt', new Date().toISOString());
+            void dialog.confirm({ message: t('profile.auto_add_confirm') }).then((confirmed) => {
+                if (!confirmed) return;
+                localStorage.setItem('bankAutoAddConsentAt', new Date().toISOString());
+                setAutoAddEnabled(val);
+                (window as any).__setBankAutoAdd?.(val);
+            });
+            return;
         }
         setAutoAddEnabled(val);
         (window as any).__setBankAutoAdd?.(val);
@@ -201,12 +215,12 @@ export const ProfileTab = ({
                 body: JSON.stringify({ oldTag: editingCategory.oldTag, newTag: editingCategory.newTag, newIcon: editingCategory.newIcon })
             });
             if (res.ok) { onCategoryChangeInfo(); onUpdate(); setEditingCategory(null); }
-            else alert("Error guardando categoría");
+            else await dialog.alert(t('profile.category_save_error'));
         } catch (e) { console.error(e); }
     };
 
     const deleteCategory = async (tag: string) => {
-        if (!confirm(`¿Borrar la categoría "${tag}"? Sus gastos pasarán a ser "OTROS".`)) return;
+        if (!await dialog.confirm({ message: t('profile.category_delete_confirm', { tag }), tone: 'danger' })) return;
         const tagNFD = tag.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         let customStr = localStorage.getItem('financeCustomCategories');
         if (customStr) {
@@ -240,12 +254,12 @@ export const ProfileTab = ({
                 body: JSON.stringify({ monthlyGoal: parseFloat(newGoal) })
             });
             if (res.ok) { onUpdate(); setViewMode('menu'); }
-            else alert("Error guardando meta");
+            else await dialog.alert(t('profile.goal_save_error'));
         } catch (e) { console.error(e); }
     };
 
     const handleDeleteAccount = async () => {
-        const confirmed = window.confirm(t('profile.delete_account_confirm'));
+        const confirmed = await dialog.confirm({ message: t('profile.delete_account_confirm'), tone: 'danger' });
         if (!confirmed) return;
 
         setIsDeletingAccount(true);
@@ -257,15 +271,15 @@ export const ProfileTab = ({
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                alert(data.error || t('profile.delete_account_error'));
+                await dialog.alert(data.error || t('profile.delete_account_error'));
                 return;
             }
 
-            alert(t('profile.delete_account_success'));
+            await dialog.alert(t('profile.delete_account_success'));
             onLogout();
         } catch (e) {
             console.error(e);
-            alert(t('profile.delete_account_error'));
+            await dialog.alert(t('profile.delete_account_error'));
         } finally {
             setIsDeletingAccount(false);
         }
@@ -279,6 +293,7 @@ export const ProfileTab = ({
                 onClose={() => setIsExplainerOpen(false)}
                 onConfirm={confirmBankSyncAction}
             />
+            <PrivacyPolicyModal isOpen={isPrivacyOpen} onClose={() => setIsPrivacyOpen(false)} />
 
             {/* Top bar */}
             <div className="profile-topbar">
@@ -349,10 +364,9 @@ export const ProfileTab = ({
                                 value={globalCurrency}
                                 onChange={e => onCurrencyChange(e.target.value as any)}
                             >
-                                <option value="ILS">ILS (Shekels)</option>
-                                <option value="USD">USD (Dólares)</option>
-                                <option value="EUR">EUR (Euros)</option>
-                                <option value="ARS">ARS (Pesos)</option>
+                                {currencyOptions.map(option => (
+                                    <option key={option.value} value={option.value}>{option.label}</option>
+                                ))}
                             </select>
                             <span className="profile-card-sub">{t('profile.currency_sub')}</span>
                         </div>
@@ -376,8 +390,7 @@ export const ProfileTab = ({
                                         transition: 'all 0.2s',
                                     }}
                                 >🇦🇷 ES</button>
-                                {/* TODO: completar traducciones EN — actualmente ~60% de la UI usa t() */}
-                                <div style={{ flex: 1, position: 'relative' }}>
+                                <div style={{ flex: 1 }}>
                                     <button
                                         onClick={() => setLang('en')}
                                         style={{
@@ -390,10 +403,9 @@ export const ProfileTab = ({
                                             transition: 'all 0.2s',
                                         }}
                                     >🇬🇧 EN</button>
-                                    <span style={{ position: 'absolute', bottom: '-13px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.45rem', fontWeight: 800, color: 'var(--accent)', letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Parcial</span>
                                 </div>
                             </div>
-                            <span className="profile-card-sub">{lang === 'es' ? 'Español' : 'English'}</span>
+                            <span className="profile-card-sub">{lang === 'es' ? t('profile.language_name_es') : t('profile.language_name_en')}</span>
                         </div>
 
                     </div>{/* end profile-grid */}
@@ -407,7 +419,7 @@ export const ProfileTab = ({
                         </div>
                         <div className="profile-row-content">
                             <div className="profile-row-sublabel">{t('profile.bank_integration')}</div>
-                            <div className="profile-row-value">{t('profile.bank_linked')}</div>
+                            <div className="profile-row-value">{bankSyncEnabled ? t('profile.bank_linked') : t('profile.bank_unlinked')}</div>
                         </div>
                         <div className="profile-row-arrow">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -424,7 +436,7 @@ export const ProfileTab = ({
                             </svg>
                         </div>
                         <div className="profile-row-content">
-                            <div className="profile-row-sublabel">Categorías</div>
+                            <div className="profile-row-sublabel">{t('profile.categories_row')}</div>
                             <div className="profile-row-cat-icons">
                                 {uniqueCategories.slice(0, 4).map(c => (
                                     <span className="profile-row-cat-icon" key={c.tag}>{c.icon || '🏷️'}</span>
@@ -486,7 +498,7 @@ export const ProfileTab = ({
                                     }} />
                                 ))}
                                 {Object.keys(appContext.customColors).length > 0 &&
-                                    <span style={{ fontSize: '0.55rem', color: 'var(--primary)', fontWeight: 800 }}>CUSTOM</span>
+                                    <span style={{ fontSize: '0.55rem', color: 'var(--primary)', fontWeight: 800 }}>{t('profile.appearance_badge_custom')}</span>
                                 }
                             </div>
                         </div>
@@ -528,7 +540,7 @@ export const ProfileTab = ({
                                             className="profile-cat-btn-edit"
                                             onClick={() => setEditingCategory({ oldTag: cat.tag, newTag: cat.tag, newIcon: cat.icon || '🏷️' })}
                                         >
-                                            Editar
+                                            {t('btn.edit')}
                                         </button>
                                         <button className="profile-cat-btn-del" onClick={() => deleteCategory(cat.tag)}>✕</button>
                                     </div>
@@ -555,7 +567,7 @@ export const ProfileTab = ({
                                 />
                             </div>
                             <div className="profile-edit-actions">
-                                <button className="profile-edit-cancel" onClick={() => setEditingCategory(null)}>Cancelar</button>
+                                <button className="profile-edit-cancel" onClick={() => setEditingCategory(null)}>{t('btn.cancel')}</button>
                                 <button className="profile-edit-save" onClick={saveCategoryEdit}>{t('profile.apply_all')}</button>
                             </div>
                         </div>
@@ -572,14 +584,14 @@ export const ProfileTab = ({
                         <p className="profile-notif-desc">
                             {t('profile.notif_disclosure')}
                         </p>
-                        <a
-                            href="/privacy"
+                        <button
+                            type="button"
                             className="profile-notif-link"
-                            target="_blank"
-                            rel="noreferrer"
+                            onClick={() => setIsPrivacyOpen(true)}
+                            style={{ background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}
                         >
                             {t('profile.notif_privacy_link')}
-                        </a>
+                        </button>
                         <div className="profile-notif-toggle-row">
                             <span className="profile-notif-toggle-label">{t('profile.notif_banks')}</span>
                             <button
@@ -605,29 +617,6 @@ export const ProfileTab = ({
                     </div>
 
                     <div className="profile-notif-beta">{t('profile.notif_beta')}</div>
-
-                    <button
-                        style={{
-                            marginTop: '1rem', padding: '0.6rem', width: '100%',
-                            background: 'transparent', border: '1px solid var(--border-dim)',
-                            borderRadius: '8px', color: 'var(--text-muted)', fontSize: '0.6rem',
-                            cursor: 'pointer', fontWeight: 800, textTransform: 'uppercase'
-                        }}
-                        onClick={() => {
-                            // Simula una notificación enviando los datos al window
-                            if (!(window as any).__debugNotify) {
-                                alert(t('profile.notif_debug_reload'));
-                                return;
-                            }
-                            (window as any).__debugNotify({
-                                packageName: 'com.mercadopago.wallet.android',
-                                title: 'Mercado Pago',
-                                text: 'Pagaste $1.450,50 en Starbucks'
-                            });
-                        }}
-                    >
-                        {t('profile.notif_debug_button')}
-                    </button>
                 </div>
             )}
 
@@ -642,7 +631,7 @@ export const ProfileTab = ({
                         <button
                             className="profile-photo-btn"
                             disabled
-                            title="Próximamente"
+                            title={t('profile.soon')}
                             style={{ opacity: 0.35, cursor: 'not-allowed' }}
                         >
                             {t('profile.change_photo')}
@@ -661,39 +650,43 @@ export const ProfileTab = ({
                             </div>
                         </div>
 
-                        <div className="profile-identity-travel-card">
-                            <div className="profile-identity-travel-top">
-                                <div>
-                                    <div className="profile-identity-travel-label">{t('profile.travel_mode')}</div>
-                                    <div className="profile-identity-travel-status">
-                                        {appContext.travelModeStart ? t('travel.active') : t('travel.inactive')}
+                        <div className="profile-identity-action-grid">
+                            <div className="profile-identity-travel-card">
+                                <div className="profile-identity-travel-top">
+                                    <div>
+                                        <div className="profile-identity-travel-label">{t('profile.travel_mode')}</div>
+                                        <div className="profile-identity-travel-status">
+                                            {t('travel.disabled')}
+                                        </div>
                                     </div>
+                                    <button
+                                        className="profile-toggle profile-identity-travel-toggle profile-toggle--off"
+                                        onClick={undefined}
+                                        disabled
+                                        style={{ opacity: 0.45, cursor: 'not-allowed' }}
+                                    >
+                                        <span className="profile-toggle-thumb" />
+                                    </button>
                                 </div>
+                                <p className="profile-identity-travel-desc">{t('profile.travel_mode_disabled_desc')}</p>
+                                <p className="profile-identity-travel-help">{t('profile.travel_mode_disabled_help')}</p>
+                            </div>
+
+                            <div className="profile-identity-danger-card">
+                                <div style={{ fontSize: '0.78rem', fontWeight: 900, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                {t('profile.delete_account_title')}
+                                </div>
+                                <p style={{ fontSize: '0.7rem', lineHeight: 1.6, color: 'var(--text-muted)', margin: '0.55rem 0 0.85rem' }}>
+                                    {t('profile.delete_account_desc')}
+                                </p>
                                 <button
-                                    className={`profile-toggle profile-identity-travel-toggle ${appContext.travelModeStart ? 'profile-toggle--on' : 'profile-toggle--off'}`}
-                                    onClick={appContext.toggleTravelMode}
+                                    onClick={handleDeleteAccount}
+                                    disabled={isDeletingAccount}
+                                    style={{ width: '100%', border: '1px solid var(--accent)', background: isDeletingAccount ? 'var(--surface-alt)' : 'transparent', color: 'var(--accent)', borderRadius: '10px', padding: '0.7rem 0.85rem', cursor: isDeletingAccount ? 'default' : 'pointer', fontWeight: 900, fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'inherit', opacity: isDeletingAccount ? 0.65 : 1 }}
                                 >
-                                    <span className="profile-toggle-thumb" />
+                                    {isDeletingAccount ? t('profile.delete_account_loading') : t('profile.delete_account_action')}
                                 </button>
                             </div>
-                            <p className="profile-identity-travel-desc">{t('profile.travel_mode_desc')}</p>
-                            <p className="profile-identity-travel-help">{t('profile.travel_mode_help')}</p>
-                        </div>
-
-                        <div style={{ marginTop: '1rem', border: '1px solid color-mix(in srgb, var(--accent) 35%, var(--border) 65%)', borderRadius: '14px', background: 'color-mix(in srgb, var(--accent) 8%, var(--surface) 92%)', padding: '1rem' }}>
-                            <div style={{ fontSize: '0.78rem', fontWeight: 900, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                {t('profile.delete_account_title')}
-                            </div>
-                            <p style={{ fontSize: '0.7rem', lineHeight: 1.6, color: 'var(--text-muted)', margin: '0.55rem 0 0.85rem' }}>
-                                {t('profile.delete_account_desc')}
-                            </p>
-                            <button
-                                onClick={handleDeleteAccount}
-                                disabled={isDeletingAccount}
-                                style={{ width: '100%', border: '1px solid var(--accent)', background: isDeletingAccount ? 'var(--surface-alt)' : 'transparent', color: 'var(--accent)', borderRadius: '10px', padding: '0.7rem 0.85rem', cursor: isDeletingAccount ? 'default' : 'pointer', fontWeight: 900, fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'inherit', opacity: isDeletingAccount ? 0.65 : 1 }}
-                            >
-                                {isDeletingAccount ? t('profile.delete_account_loading') : t('profile.delete_account_action')}
-                            </button>
                         </div>
                     </div>
 
@@ -701,7 +694,7 @@ export const ProfileTab = ({
                     <div style={{ position: 'relative' }}>
                         <div className="profile-subview-label profile-subview-header">
                             {t('profile.social_links')}
-                            <span className="profile-soon-badge">Próximamente</span>
+                            <span className="profile-soon-badge">{t('profile.soon')}</span>
                         </div>
                         <div className="profile-social-list" style={{ opacity: 0.35, pointerEvents: 'none', userSelect: 'none' }}>
                             <div className="profile-social-item">
@@ -709,18 +702,18 @@ export const ProfileTab = ({
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                                         <circle cx="12" cy="12" r="10" /><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4c2.21 0 4-1.79 4-4s-1.79-4-4-4zm4.83 2c-.17-.67-.5-1.28-.96-1.77L15 9.06c.31.33.53.74.64 1.18h1.19zM8.17 14c.17.67.5 1.28.96 1.77L10 14.94c-.31-.33-.53-.74-.64-1.18H8.17z" />
                                     </svg>
-                                    <span>Google Account</span>
+                                    <span>{t('profile.google_account')}</span>
                                 </div>
-                                <button className="profile-social-btn active" disabled>Desvincular</button>
+                                <button className="profile-social-btn active" disabled>{t('profile.unlink')}</button>
                             </div>
                             <div className="profile-social-item">
                                 <div className="profile-social-info">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                                         <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
                                     </svg>
-                                    <span>GitHub Repository</span>
+                                    <span>{t('profile.github_repository')}</span>
                                 </div>
-                                <button className="profile-social-btn" disabled>Vincular</button>
+                                <button className="profile-social-btn" disabled>{t('profile.link')}</button>
                             </div>
                         </div>
                     </div>
@@ -729,24 +722,24 @@ export const ProfileTab = ({
                     <div style={{ position: 'relative' }}>
                         <div className="profile-subview-label profile-subview-header">
                             {t('profile.linked_devices')}
-                            <span className="profile-soon-badge">Próximamente</span>
+                            <span className="profile-soon-badge">{t('profile.soon')}</span>
                         </div>
                         <div className="profile-device-list" style={{ opacity: 0.35, pointerEvents: 'none', userSelect: 'none' }}>
                             <div className="profile-device-item">
                                 <div className="profile-device-icon-wrap">📱</div>
                                 <div className="profile-device-details">
-                                    <div className="profile-device-name">Samsung Galaxy S24 Ultra (Este)</div>
-                                    <div className="profile-device-meta">Sesión iniciada hoy • Buenos Aires, ARG</div>
+                                    <div className="profile-device-name">{t('profile.device_current_example')}</div>
+                                    <div className="profile-device-meta">{t('profile.device_current_meta')}</div>
                                 </div>
-                                <div className="profile-device-status">Online</div>
+                                <div className="profile-device-status">{t('profile.device_online')}</div>
                             </div>
                             <div className="profile-device-item">
                                 <div className="profile-device-icon-wrap">💻</div>
                                 <div className="profile-device-details">
-                                    <div className="profile-device-name">MacBook Pro 14&quot; M3</div>
-                                    <div className="profile-device-meta">Última actividad hace 2 horas • Buenos Aires, ARG</div>
+                                    <div className="profile-device-name">{t('profile.device_secondary_example')}</div>
+                                    <div className="profile-device-meta">{t('profile.device_secondary_meta')}</div>
                                 </div>
-                                <button className="profile-device-logout" disabled>Cerrar</button>
+                                <button className="profile-device-logout" disabled>{t('profile.close_session')}</button>
                             </div>
                         </div>
                     </div>
@@ -859,7 +852,7 @@ export const ProfileTab = ({
                                         className="profile-color-input"
                                         value={appContext.customColors[variable] || '#000000'}
                                         onChange={e => appContext.setCustomColor(variable, e.target.value)}
-                                        title={`Cambiar ${t(labelKey)}`}
+                                        title={`${t('profile.appearance_change_color')}: ${t(labelKey)}`}
                                     />
                                 </div>
                             </div>
@@ -869,8 +862,8 @@ export const ProfileTab = ({
                     {Object.keys(appContext.customColors).length > 0 && (
                         <button
                             className="profile-colors-reset-btn"
-                            onClick={() => {
-                                if (confirm('¿Restaurar todos los colores originales?')) {
+                            onClick={async () => {
+                                if (await dialog.confirm({ message: t('profile.colors_reset_confirm') })) {
                                     appContext.resetCustomColors();
                                 }
                             }}

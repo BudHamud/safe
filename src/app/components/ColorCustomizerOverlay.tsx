@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import './ColorCustomizerOverlay.css';
 import { useAppContext } from '../../context/AppContext';
 import { useLanguage, TranslationKey } from '../../context/LanguageContext';
+import { useDialog } from '../../context/DialogContext';
 import { COLOR_PRESETS, WIDGET_ZONES } from '../../lib/colorSystem';
 
 const PRESET_NAME_KEYS: Record<string, TranslationKey> = {
@@ -66,6 +67,7 @@ const getTranslatedValue = (
 export const ColorCustomizerOverlay = () => {
     const ctx = useAppContext();
     const { t } = useLanguage();
+    const dialog = useDialog();
     const {
         isColorMode, setIsColorMode,
         activeColorZone, setActiveColorZone,
@@ -321,8 +323,8 @@ export const ColorCustomizerOverlay = () => {
                             {Object.values(widgetColors).some(v => Object.keys(v).length > 0) && (
                                 <button
                                     className="color-overlay__reset-all"
-                                    onClick={() => {
-                                        if (confirm(t('profile.appearance_confirm_reset_all_zones'))) {
+                                    onClick={async () => {
+                                        if (await dialog.confirm({ message: t('profile.appearance_confirm_reset_all_zones') })) {
                                             resetWidgetColors();
                                         }
                                     }}

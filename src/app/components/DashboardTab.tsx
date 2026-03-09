@@ -14,7 +14,7 @@ type DashboardTabProps = {
     onTransactionClick: (tx: Transaction) => void;
     globalCurrency: string;
     isTravelMode?: boolean;
-    toggleTravelMode?: () => void;
+    toggleTravelMode?: () => Promise<void>;
     onAddClick?: () => void;
     allTransactions?: Transaction[];
     setIsAddModalOpen?: (open: boolean) => void;
@@ -287,7 +287,7 @@ export const DashboardTab = ({
                                 <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: '0.2rem', fontWeight: 600 }}>{t('dashboard.set_goal_hint')}</div>
                             </div>
                             <button
-                                onClick={() => router.push('/profile')}
+                                onClick={() => router.push('/app/profile')}
                                 style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-muted)', fontSize: '0.6rem', fontWeight: 800, padding: '0.45rem 0.9rem', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.06em', textTransform: 'uppercase', transition: 'all 0.15s' }}
                                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--primary)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--primary)'; }}
                                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)'; }}

@@ -1,6 +1,6 @@
 import React from 'react';
-import Link from 'next/link';
 import { useLanguage } from '../../context/LanguageContext';
+import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 
 interface BankSyncExplainerProps {
     isOpen: boolean;
@@ -10,6 +10,7 @@ interface BankSyncExplainerProps {
 
 export const BankSyncExplainer = ({ isOpen, onClose, onConfirm }: BankSyncExplainerProps) => {
     const { t } = useLanguage();
+    const [isPrivacyOpen, setIsPrivacyOpen] = React.useState(false);
 
     if (!isOpen) return null;
 
@@ -130,9 +131,13 @@ export const BankSyncExplainer = ({ isOpen, onClose, onConfirm }: BankSyncExplai
                     <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
                         {t('bank_explainer.disclosure_body')}
                     </div>
-                    <Link href="/privacy" style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--primary)', textDecoration: 'none' }}>
+                    <button
+                        type="button"
+                        onClick={() => setIsPrivacyOpen(true)}
+                        style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--primary)', textDecoration: 'none', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
                         {t('bank_explainer.privacy_link')}
-                    </Link>
+                    </button>
                 </div>
 
                 {/* Footer Actions */}
@@ -184,6 +189,8 @@ export const BankSyncExplainer = ({ isOpen, onClose, onConfirm }: BankSyncExplai
                     to { opacity: 1; }
                 }
             `}} />
+
+            <PrivacyPolicyModal isOpen={isPrivacyOpen} onClose={() => setIsPrivacyOpen(false)} />
         </div>
     );
 };

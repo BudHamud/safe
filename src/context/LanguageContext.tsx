@@ -1,8 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import en from '../i18n/en.json';
 import es from '../i18n/es.json';
+import { APP_LANGUAGE_STORAGE_KEY, normalizeLang, resolveLangFromBrowserList } from '../lib/language';
 
 export type Lang = 'es' | 'en';
 export type TranslationKey = keyof typeof en;
@@ -17,15 +18,34 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-export const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
-    const [lang, setLangState] = useState<Lang>(() => {
-        if (typeof window === 'undefined') return 'es';
-        return (localStorage.getItem('app-lang') as Lang) ?? 'es';
-    });
+const persistLang = (newLang: Lang) => {
+    localStorage.setItem(APP_LANGUAGE_STORAGE_KEY, newLang);
+    document.cookie = `${APP_LANGUAGE_STORAGE_KEY}=${newLang}; path=/; max-age=31536000; samesite=lax`;
+    document.documentElement.lang = newLang;
+};
+
+export const LanguageProvider = ({ children, initialLang = 'es' }: { children: React.ReactNode; initialLang?: Lang }) => {
+    const [lang, setLangState] = useState<Lang>(initialLang);
+
+    useEffect(() => {
+        const storedLang = normalizeLang(localStorage.getItem(APP_LANGUAGE_STORAGE_KEY));
+        const browserLang = resolveLangFromBrowserList(
+            Array.isArray(navigator.languages) && navigator.languages.length > 0
+                ? navigator.languages
+                : [navigator.language]
+        );
+        const resolvedLang = storedLang ?? browserLang;
+
+        if (resolvedLang !== lang) {
+            setLangState(resolvedLang);
+        }
+
+        persistLang(resolvedLang);
+    }, []);
 
     const setLang = useCallback((newLang: Lang) => {
         setLangState(newLang);
-        localStorage.setItem('app-lang', newLang);
+        persistLang(newLang);
     }, []);
 
     const t = useCallback((key: TranslationKey, params?: Record<string, string | number>): string => {

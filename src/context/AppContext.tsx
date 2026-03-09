@@ -65,7 +65,7 @@ type GlobalContextType = {
     handleLogin: (uid: string, un: string, token?: string) => void;
     handleLogout: () => void;
     handleCurrencyChange: (curr: 'ILS' | 'USD' | 'ARS' | 'EUR') => void;
-    toggleTravelMode: () => void;
+    toggleTravelMode: () => Promise<void>;
     saveTransaction: (tx: Transaction) => Promise<void>;
     handleDeleteTransaction: (id: string) => Promise<void>;
     setSelectedTransaction: (tx: Transaction | null) => void;
@@ -161,13 +161,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             clearPersistedSession();
         }
 
-        const storedTravel = localStorage.getItem('financeTravelModeStart');
-        if (storedTravel) {
-            setTravelModeStart(storedTravel);
-            document.documentElement.setAttribute('data-travel', 'true');
-        } else {
-            document.documentElement.removeAttribute('data-travel');
-        }
+        localStorage.removeItem('financeTravelModeStart');
+        setTravelModeStart(null);
+        document.documentElement.removeAttribute('data-travel');
 
         return () => {
             window.removeEventListener('online', goOnline);
@@ -447,19 +443,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem("app-currency", curr);
     };
 
-    const toggleTravelMode = () => {
-        if (travelModeStart) {
-            localStorage.removeItem('financeTravelModeStart');
-            setTravelModeStart(null);
-            document.documentElement.removeAttribute('data-travel');
-        } else {
-            if (confirm("¿Activar Modo Viaje / Cuenta Nueva? Esto aislará los saldos antiguos temporalmente.")) {
-                const todayStr = new Date().toISOString().split('T')[0];
-                localStorage.setItem('financeTravelModeStart', todayStr);
-                setTravelModeStart(todayStr);
-                document.documentElement.setAttribute('data-travel', 'true');
-            }
-        }
+    const toggleTravelMode = async () => {
+        localStorage.removeItem('financeTravelModeStart');
+        setTravelModeStart(null);
+        document.documentElement.removeAttribute('data-travel');
     };
 
     const allCategories = React.useMemo(() => {

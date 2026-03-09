@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import './AuthModal.css';
 import { Logo } from './Logo';
 import { useLanguage } from '../../context/LanguageContext';
+import { useDialog } from '../../context/DialogContext';
 
 type AuthModalProps = {
     onLogin: (userId: string, username: string, token?: string) => void;
 };
 export const AuthModal = ({ onLogin }: AuthModalProps) => {
     const { t } = useLanguage();
+    const dialog = useDialog();
     const [isRegister, setIsRegister] = useState(false);
     const [formData, setFormData] = useState({ username: '', email: '', password: '', wantsGoal: false, monthlyGoal: '' });
     const [showPassword, setShowPassword] = useState(false);
@@ -16,7 +18,7 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.username || !formData.password || (isRegister && !formData.email)) {
-            alert(t('auth.complete_fields'));
+            await dialog.alert(t('auth.complete_fields'));
             return;
         }
         setIsLoading(true);
@@ -28,13 +30,13 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
             });
             const data = await res.json();
             if (!res.ok) {
-                alert(data.error || t('auth.error'));
+                await dialog.alert(data.error || t('auth.error'));
                 return;
             }
             onLogin(data.id, data.username, data.access_token);
         } catch (e) {
             console.error(e);
-            alert(t('auth.server_connection_error'));
+            await dialog.alert(t('auth.server_connection_error'));
         } finally {
             setIsLoading(false);
         }
@@ -191,7 +193,7 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
 
                 {/* Footer */}
                 <div className="auth-footer">
-                    <span className="auth-footer-version">© Safed v0.1</span>
+                    <span className="auth-footer-version">© Safed v1.0.12</span>
                     <div className="auth-footer-icons">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
