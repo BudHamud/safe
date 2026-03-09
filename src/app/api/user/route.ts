@@ -11,7 +11,7 @@ export async function GET(req: Request) {
         const { data: profile } = await supabaseAdmin
             .from('User').select('id, username, monthlyGoal').eq('authId', user.id).maybeSingle();
         if (!profile) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
-        return NextResponse.json(profile);
+        return NextResponse.json({ ...profile, email: user.email ?? null });
     } catch (err) {
         console.error(err);
         return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });

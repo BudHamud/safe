@@ -13,6 +13,7 @@ import { parseDate } from './movements.utils';
 
 type ProfileTabProps = {
     userName: string;
+    userEmail: string | null;
     theme: string;
     toggleTheme: () => void;
     onLogout: () => void;
@@ -27,7 +28,7 @@ type ProfileTabProps = {
 };
 
 export const ProfileTab = ({
-    userName, theme, toggleTheme, onLogout, transactions, userId,
+    userName, userEmail, theme, toggleTheme, onLogout, transactions, userId,
     monthlyGoal, onUpdate, globalCurrency, onCurrencyChange,
     availableCategories, onCategoryChangeInfo
 }: ProfileTabProps) => {
@@ -46,7 +47,13 @@ export const ProfileTab = ({
     const [isExplainerOpen, setIsExplainerOpen] = useState(false);
     const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<{ oldTag: string; newTag: string; newIcon: string } | null>(null);
+    const [newCategory, setNewCategory] = useState<{ name: string; icon: string } | null>(null);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+    const [currentEmail, setCurrentEmail] = useState(userEmail ?? '');
+    const [newEmail, setNewEmail] = useState('');
+    const [isChangingEmail, setIsChangingEmail] = useState(false);
+    const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
 
     // Sync
     const [isSyncing, setIsSyncing] = useState(false);
@@ -101,6 +108,10 @@ export const ProfileTab = ({
     useEffect(() => {
         setNewGoal(monthlyGoal.toString());
     }, [monthlyGoal]);
+
+    useEffect(() => {
+        setCurrentEmail(userEmail ?? '');
+    }, [userEmail]);
 
     const toggleBankSync = (val: boolean) => {
         if (val) {
@@ -166,7 +177,37 @@ export const ProfileTab = ({
     const daysLeft = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate() - currentDate.getDate();
 
     const name = userName;
+    const normalizedUserName = userName.trim().toLowerCase();
+    const normalizedUserEmail = (userEmail || '').trim().toLowerCase();
+    const hideIdentityEmailAndPassword = normalizedUserName === 'tester' || normalizedUserEmail === 'tester@safed.com';
+    const maskedCurrentEmail = currentEmail ? '••••••••••' : t('profile.email_not_available');
     const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+
+    const requestSensitiveEmailConfirmation = async (messageKey: TranslationKey) => {
+        if (!currentEmail) {
+            await dialog.alert(t('profile.sensitive_email_missing'));
+            return false;
+        }
+
+        const typedEmail = await dialog.prompt({
+            title: t('profile.sensitive_email_prompt_title'),
+            message: t(messageKey),
+            inputLabel: t('profile.sensitive_email_prompt_label'),
+            inputPlaceholder: t('profile.sensitive_email_prompt_placeholder'),
+            confirmLabel: t('btn.confirm'),
+            cancelLabel: t('btn.cancel'),
+            tone: 'danger',
+        });
+
+        if (typedEmail === null) return false;
+
+        if (typedEmail.trim().toLowerCase() !== currentEmail.trim().toLowerCase()) {
+            await dialog.alert(t('profile.sensitive_email_mismatch'));
+            return false;
+        }
+
+        return true;
+    };
 
     // ── Actions ───────────────────────────────────────────────
     const saveCategoryEdit = async () => {
@@ -236,9 +277,112 @@ export const ProfileTab = ({
         } catch (e) { console.error(e); }
     };
 
+    const handleChangePassword = async () => {
+        if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+            await dialog.alert(t('profile.password_fields_required'));
+            return;
+        }
+
+        if (passwordForm.newPassword.length < 8) {
+            await dialog.alert(t('profile.password_min_length'));
+            return;
+        }
+
+        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+            await dialog.alert(t('profile.password_mismatch'));
+            return;
+        }
+
+        setIsChangingPassword(true);
+        try {
+            const res = await fetch('/api/auth/password/change', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                },
+                body: JSON.stringify({
+                    currentPassword: passwordForm.currentPassword,
+                    newPassword: passwordForm.newPassword,
+                })
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                await dialog.alert(
+                    data.error === 'invalid_current_password'
+                        ? t('profile.password_current_invalid')
+                        : t('profile.password_change_error')
+                );
+                return;
+            }
+
+            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            await dialog.alert(t('profile.password_change_success'));
+        } catch (e) {
+            console.error(e);
+            await dialog.alert(t('profile.password_change_error'));
+        } finally {
+            setIsChangingPassword(false);
+        }
+    };
+
+    const handleChangeEmail = async () => {
+        const normalizedEmail = newEmail.trim().toLowerCase();
+        if (!normalizedEmail) {
+            await dialog.alert(t('profile.email_required'));
+            return;
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+            await dialog.alert(t('profile.email_invalid'));
+            return;
+        }
+
+        if (currentEmail && currentEmail.toLowerCase() === normalizedEmail) {
+            await dialog.alert(t('profile.email_same'));
+            return;
+        }
+
+        setIsChangingEmail(true);
+        try {
+            const res = await fetch('/api/auth/email/change', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                },
+                body: JSON.stringify({ newEmail: normalizedEmail })
+            });
+
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                await dialog.alert(
+                    data.error === 'same_email'
+                        ? t('profile.email_same')
+                        : data.error === 'invalid_email'
+                            ? t('profile.email_invalid')
+                            : t('profile.email_change_error')
+                );
+                return;
+            }
+
+            setCurrentEmail(data.email ?? normalizedEmail);
+            setNewEmail('');
+            onUpdate();
+            await dialog.alert(t('profile.email_change_success'));
+        } catch (error) {
+            console.error(error);
+            await dialog.alert(t('profile.email_change_error'));
+        } finally {
+            setIsChangingEmail(false);
+        }
+    };
+
     const handleDeleteAccount = async () => {
-        const confirmed = await dialog.confirm({ message: t('profile.delete_account_confirm'), tone: 'danger' });
-        if (!confirmed) return;
+        const emailConfirmed = await requestSensitiveEmailConfirmation('profile.delete_account_email_confirm');
+        if (!emailConfirmed) return;
 
         setIsDeletingAccount(true);
         try {
@@ -261,6 +405,44 @@ export const ProfileTab = ({
         } finally {
             setIsDeletingAccount(false);
         }
+    };
+
+    const saveNewCategory = async () => {
+        if (!newCategory) return;
+
+        const nextName = newCategory.name.trim();
+        const nextIcon = newCategory.icon.trim() || '🏷️';
+
+        if (!nextName) {
+            await dialog.alert(t('profile.category_name_required'));
+            return;
+        }
+
+        const normalize = (value: string) => value.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const normalizedName = normalize(nextName);
+        const alreadyExists = availableCategories.some(category => normalize(category.label) === normalizedName);
+
+        if (alreadyExists) {
+            await dialog.alert(t('profile.category_exists'));
+            return;
+        }
+
+        const existingStr = localStorage.getItem('financeCustomCategories');
+        const existing: Category[] = existingStr ? JSON.parse(existingStr) : [];
+        existing.push({
+            id: nextName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+            label: nextName,
+            icon: nextIcon,
+        });
+        localStorage.setItem('financeCustomCategories', JSON.stringify(existing));
+
+        const hiddenStr = localStorage.getItem('financeHiddenCategories');
+        const hiddenCats: string[] = hiddenStr ? JSON.parse(hiddenStr) : [];
+        const filteredHidden = hiddenCats.filter(tag => normalize(tag) !== normalizedName);
+        localStorage.setItem('financeHiddenCategories', JSON.stringify(filteredHidden));
+
+        onCategoryChangeInfo();
+        setNewCategory(null);
     };
 
     // ── Render ────────────────────────────────────────────────
@@ -500,10 +682,21 @@ export const ProfileTab = ({
             {/* ── CATEGORIES VIEW ── */}
             {viewMode === 'categories' && (
                 <div>
-                    <div className="profile-subview-label">{t('profile.categories_title')}</div>
+                    <div className="profile-categories-header">
+                        <div className="profile-subview-label" style={{ marginBottom: 0 }}>{t('profile.categories_title')}</div>
+                    </div>
 
-                    {!editingCategory ? (
+                    {!editingCategory && !newCategory ? (
                         <div className="profile-cat-list">
+                            <button className="profile-cat-add-row" onClick={() => setNewCategory({ name: '', icon: '🏷️' })}>
+                                <div className="profile-cat-add-main">
+                                    <div className="profile-cat-icon-box profile-cat-add-icon">+</div>
+                                    <div>
+                                        <div className="profile-cat-name">{t('profile.category_add_title')}</div>
+                                    </div>
+                                </div>
+                                <div className="profile-cat-add-cta">+</div>
+                            </button>
                             {uniqueCategories.map(cat => (
                                 <div key={cat.tag} className="profile-cat-row">
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -525,8 +718,34 @@ export const ProfileTab = ({
                                 </div>
                             ))}
                         </div>
+                    ) : newCategory ? (
+                        <div className="profile-cat-edit-form">
+                            <div className="profile-cat-form-title">{t('profile.category_add_title')}</div>
+                            <div>
+                                <span className="profile-edit-field-label">{t('profile.cat_new_emoji')}</span>
+                                <input
+                                    className="profile-edit-emoji-input"
+                                    value={newCategory.icon}
+                                    onChange={e => setNewCategory({ ...newCategory, icon: e.target.value })}
+                                    maxLength={3}
+                                />
+                            </div>
+                            <div>
+                                <span className="profile-edit-field-label">{t('profile.cat_new_name')}</span>
+                                <input
+                                    className="profile-edit-text-input"
+                                    value={newCategory.name}
+                                    onChange={e => setNewCategory({ ...newCategory, name: e.target.value })}
+                                />
+                            </div>
+                            <div className="profile-edit-actions">
+                                <button className="profile-edit-cancel" onClick={() => setNewCategory(null)}>{t('btn.cancel')}</button>
+                                <button className="profile-edit-save" onClick={saveNewCategory}>{t('btn.save')}</button>
+                            </div>
+                        </div>
                     ) : (
                         <div className="profile-cat-edit-form">
+                            <div className="profile-cat-form-title">{t('btn.edit')}</div>
                             <div>
                                 <span className="profile-edit-field-label">{t('profile.cat_new_emoji')}</span>
                                 <input
@@ -628,6 +847,113 @@ export const ProfileTab = ({
                             </div>
                         </div>
 
+                        {!hideIdentityEmailAndPassword && (
+                            <>
+                                <div className="profile-password-card">
+                                    <div className="profile-password-title">{t('profile.email_section_title')}</div>
+                                    <p className="profile-password-desc">{t('profile.email_section_desc')}</p>
+
+                                    <div className="profile-email-fields">
+                                        <div className="profile-form-group">
+                                            <label>{t('profile.email_current')}</label>
+                                            <div className="profile-text-input-shell">
+                                                <div className="profile-text-display profile-email-display">{maskedCurrentEmail}</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="profile-form-group">
+                                            <label>{t('profile.email_new')}</label>
+                                            <input
+                                                type="email"
+                                                className="profile-password-input"
+                                                value={newEmail}
+                                                onChange={e => setNewEmail(e.target.value)}
+                                                autoComplete="email"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="profile-password-actions">
+                                        <button
+                                            className="profile-password-btn profile-password-btn-secondary"
+                                            type="button"
+                                            onClick={() => setNewEmail('')}
+                                            disabled={isChangingEmail}
+                                        >
+                                            {t('btn.cancel')}
+                                        </button>
+                                        <button
+                                            className="profile-password-btn profile-password-btn-primary"
+                                            type="button"
+                                            onClick={handleChangeEmail}
+                                            disabled={isChangingEmail}
+                                        >
+                                            {isChangingEmail ? t('profile.email_change_loading') : t('profile.email_change_action')}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="profile-password-card">
+                                    <div className="profile-password-title">{t('profile.password_section_title')}</div>
+                                    <p className="profile-password-desc">{t('profile.password_section_desc')}</p>
+
+                                    <div className="profile-password-fields">
+                                        <div className="profile-form-group">
+                                            <label>{t('profile.password_current')}</label>
+                                            <input
+                                                type="password"
+                                                className="profile-password-input"
+                                                value={passwordForm.currentPassword}
+                                                onChange={e => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                                                autoComplete="current-password"
+                                            />
+                                        </div>
+
+                                        <div className="profile-form-group">
+                                            <label>{t('profile.password_new')}</label>
+                                            <input
+                                                type="password"
+                                                className="profile-password-input"
+                                                value={passwordForm.newPassword}
+                                                onChange={e => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                                                autoComplete="new-password"
+                                            />
+                                        </div>
+
+                                        <div className="profile-form-group">
+                                            <label>{t('profile.password_confirm')}</label>
+                                            <input
+                                                type="password"
+                                                className="profile-password-input"
+                                                value={passwordForm.confirmPassword}
+                                                onChange={e => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                                                autoComplete="new-password"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="profile-password-actions">
+                                        <button
+                                            className="profile-password-btn profile-password-btn-secondary"
+                                            type="button"
+                                            onClick={() => setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })}
+                                            disabled={isChangingPassword}
+                                        >
+                                            {t('btn.cancel')}
+                                        </button>
+                                        <button
+                                            className="profile-password-btn profile-password-btn-primary"
+                                            type="button"
+                                            onClick={handleChangePassword}
+                                            disabled={isChangingPassword}
+                                        >
+                                            {isChangingPassword ? t('profile.password_change_loading') : t('profile.password_change_action')}
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
                         <div className="profile-identity-action-grid">
                             <div className="profile-identity-travel-card">
                                 <div className="profile-identity-travel-top">
@@ -660,7 +986,7 @@ export const ProfileTab = ({
                                 <button
                                     onClick={handleDeleteAccount}
                                     disabled={isDeletingAccount}
-                                    style={{ width: '100%', border: '1px solid var(--accent)', background: isDeletingAccount ? 'var(--surface-alt)' : 'transparent', color: 'var(--accent)', borderRadius: '10px', padding: '0.7rem 0.85rem', cursor: isDeletingAccount ? 'default' : 'pointer', fontWeight: 900, fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'inherit', opacity: isDeletingAccount ? 0.65 : 1 }}
+                                    style={{ width: '100%', border: '1px solid var(--accent)', background: isDeletingAccount ? 'var(--surface-alt)' : 'transparent', color: 'var(--accent)', borderRadius: '2px', padding: '0.7rem 0.85rem', cursor: isDeletingAccount ? 'default' : 'pointer', fontWeight: 900, fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'inherit', opacity: isDeletingAccount ? 0.65 : 1 }}
                                 >
                                     {isDeletingAccount ? t('profile.delete_account_loading') : t('profile.delete_account_action')}
                                 </button>

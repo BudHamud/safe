@@ -11,16 +11,21 @@ type DialogOptions = {
     confirmLabel?: string;
     cancelLabel?: string;
     tone?: DialogTone;
+    inputLabel?: string;
+    inputPlaceholder?: string;
+    initialValue?: string;
 };
 
 type DialogState =
     | ({ kind: 'alert' } & DialogOptions)
     | ({ kind: 'confirm' } & DialogOptions)
+    | ({ kind: 'prompt'; inputValue: string } & DialogOptions)
     | null;
 
 type DialogContextType = {
     alert: (options: string | DialogOptions) => Promise<void>;
     confirm: (options: string | DialogOptions) => Promise<boolean>;
+    prompt: (options: string | DialogOptions) => Promise<string | null>;
 };
 
 const DialogContext = createContext<DialogContextType | undefined>(undefined);
@@ -35,9 +40,9 @@ const toOptions = (options: string | DialogOptions): DialogOptions => {
 export const DialogProvider = ({ children }: { children: React.ReactNode }) => {
     const { t } = useLanguage();
     const [dialog, setDialog] = useState<DialogState>(null);
-    const resolverRef = useRef<((value: boolean) => void) | null>(null);
+    const resolverRef = useRef<((value: boolean | string | null) => void) | null>(null);
 
-    const closeDialog = useCallback((result: boolean) => {
+    const closeDialog = useCallback((result: boolean | string | null) => {
         const resolver = resolverRef.current;
         resolverRef.current = null;
         setDialog(null);
@@ -60,7 +65,15 @@ export const DialogProvider = ({ children }: { children: React.ReactNode }) => {
         return openDialog('confirm', options);
     }, [openDialog]);
 
-    const value = useMemo(() => ({ alert, confirm }), [alert, confirm]);
+    const prompt = useCallback((options: string | DialogOptions) => {
+        const normalized = toOptions(options);
+        return new Promise<string | null>((resolve) => {
+            resolverRef.current = resolve;
+            setDialog({ kind: 'prompt', tone: 'default', inputValue: normalized.initialValue ?? '', ...normalized });
+        });
+    }, []);
+
+    const value = useMemo(() => ({ alert, confirm, prompt }), [alert, confirm, prompt]);
 
     const isDanger = dialog?.tone === 'danger';
 
@@ -105,10 +118,33 @@ export const DialogProvider = ({ children }: { children: React.ReactNode }) => {
                             {dialog.message}
                         </p>
 
+                        {dialog.kind === 'prompt' && (
+                            <div style={{ marginTop: '0.95rem' }}>
+                                {dialog.inputLabel && (
+                                    <div style={{ marginBottom: '0.4rem', fontSize: '0.57rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.13em', textTransform: 'uppercase' }}>
+                                        {dialog.inputLabel}
+                                    </div>
+                                )}
+                                <input
+                                    autoFocus
+                                    value={dialog.inputValue}
+                                    onChange={(event) => setDialog(prev => prev && prev.kind === 'prompt' ? { ...prev, inputValue: event.target.value } : prev)}
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter') {
+                                            event.preventDefault();
+                                            closeDialog(dialog.inputValue);
+                                        }
+                                    }}
+                                    placeholder={dialog.inputPlaceholder}
+                                    style={{ width: '100%', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: '2px', color: 'var(--text-main)', fontFamily: 'inherit', fontSize: '0.9rem', fontWeight: 600, padding: '0.75rem 0.9rem', boxSizing: 'border-box', outline: 'none' }}
+                                />
+                            </div>
+                        )}
+
                         <div style={{ display: 'flex', gap: '0.65rem', marginTop: '1.1rem', justifyContent: 'flex-end' }}>
-                            {dialog.kind === 'confirm' && (
+                            {(dialog.kind === 'confirm' || dialog.kind === 'prompt') && (
                                 <button
-                                    onClick={() => closeDialog(false)}
+                                    onClick={() => closeDialog(dialog.kind === 'prompt' ? null : false)}
                                     style={{
                                         background: 'transparent',
                                         border: '1px solid var(--border)',
@@ -125,7 +161,7 @@ export const DialogProvider = ({ children }: { children: React.ReactNode }) => {
                             )}
 
                             <button
-                                onClick={() => closeDialog(true)}
+                                onClick={() => closeDialog(dialog.kind === 'prompt' ? dialog.inputValue : true)}
                                 style={{
                                     background: isDanger ? 'var(--accent)' : 'var(--primary)',
                                     border: 'none',
@@ -137,7 +173,7 @@ export const DialogProvider = ({ children }: { children: React.ReactNode }) => {
                                     fontFamily: 'inherit',
                                 }}
                             >
-                                {dialog.confirmLabel || (dialog.kind === 'confirm' ? t('btn.confirm') : t('btn.close'))}
+                                {dialog.confirmLabel || (dialog.kind === 'alert' ? t('btn.close') : t('btn.confirm'))}
                             </button>
                         </div>
                     </div>

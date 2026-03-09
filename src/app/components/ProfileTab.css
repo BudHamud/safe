@@ -432,6 +432,12 @@
     margin-bottom: 1rem;
 }
 
+.profile-categories-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
 /* Categories list */
 .profile-cat-list {
     display: flex;
@@ -439,9 +445,58 @@
     gap: 0.4rem;
 }
 
+.profile-cat-add-row {
+    width: 100%;
+    background: color-mix(in srgb, var(--p-green) 14%, var(--p-surface) 86%);
+    border: 1px solid color-mix(in srgb, var(--p-green) 42%, var(--p-border) 58%);
+    border-radius: 2px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.profile-cat-add-main {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.profile-cat-add-icon {
+    background: color-mix(in srgb, var(--p-green) 22%, var(--p-surf2) 78%);
+    border-color: color-mix(in srgb, var(--p-green) 48%, var(--p-border) 52%);
+    color: var(--p-green);
+    font-weight: 900;
+}
+
+.profile-cat-add-cta {
+    color: var(--p-green);
+    font-weight: 900;
+    font-size: 1rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.profile-cat-add-row:hover {
+    background: color-mix(in srgb, var(--p-green) 18%, var(--p-surface) 82%);
+    border-color: color-mix(in srgb, var(--p-green) 55%, var(--p-border) 45%);
+}
+
+.profile-cat-add-row:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--p-green) 55%, #fff 45%);
+    outline-offset: 2px;
+}
+
 .profile-cat-row {
     background: var(--p-surface);
     border: 1px solid var(--p-border);
+    border-radius: 2px;
     padding: 0.75rem 1rem;
     display: flex;
     align-items: center;
@@ -453,6 +508,7 @@
     height: 32px;
     background: var(--p-surf2);
     border: 1px solid var(--p-border);
+    border-radius: 2px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -485,6 +541,7 @@
 .profile-cat-btn-edit {
     background: var(--p-surf2);
     border: 1px solid var(--p-border2);
+    border-radius: 2px;
     color: var(--p-text);
     padding: 0.45rem 0.8rem;
     font-weight: 800;
@@ -498,6 +555,7 @@
 .profile-cat-btn-del {
     background: transparent;
     border: 1px solid var(--p-border);
+    border-radius: 2px;
     color: var(--p-red);
     padding: 0.45rem 0.6rem;
     font-weight: 900;
@@ -519,6 +577,14 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
+}
+
+.profile-cat-form-title {
+    font-size: 0.72rem;
+    font-weight: 900;
+    color: var(--p-text);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 
 .profile-edit-field-label {
@@ -787,6 +853,114 @@
     color: var(--p-muted);
     text-transform: uppercase;
     letter-spacing: 0.08em;
+}
+
+.profile-email-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+@media (max-width: 860px) {
+    .profile-email-fields {
+        grid-template-columns: 1fr;
+    }
+}
+
+.profile-email-display {
+    text-transform: none;
+    word-break: break-word;
+    user-select: text;
+}
+
+.profile-password-card {
+    width: 100%;
+    background: color-mix(in srgb, var(--p-green) 8%, var(--p-surface) 92%);
+    border: 1px solid color-mix(in srgb, var(--p-green) 26%, var(--p-border) 74%);
+    border-radius: 2px;
+    padding: 0.95rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.profile-password-title {
+    font-size: 0.7rem;
+    font-weight: 900;
+    color: var(--p-text);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.profile-password-desc {
+    margin: -0.2rem 0 0;
+    font-size: 0.72rem;
+    line-height: 1.55;
+    color: var(--p-muted);
+}
+
+.profile-password-fields {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+@media (max-width: 860px) {
+    .profile-password-fields {
+        grid-template-columns: 1fr;
+    }
+}
+
+.profile-password-input {
+    width: 100%;
+    background: var(--p-surf2);
+    border: 1px solid var(--p-border2);
+    border-radius: 2px;
+    color: var(--p-text);
+    padding: 0.75rem 0.9rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    outline: none;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.profile-password-input:focus {
+    border-color: var(--p-green);
+}
+
+.profile-password-actions {
+    display: flex;
+    gap: 0.6rem;
+}
+
+.profile-password-btn {
+    flex: 1;
+    border-radius: 2px;
+    padding: 0.8rem 0.85rem;
+    font-weight: 900;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.profile-password-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.profile-password-btn-secondary {
+    background: transparent;
+    border: 1px solid var(--p-border2);
+    color: var(--p-muted);
+}
+
+.profile-password-btn-primary {
+    background: var(--p-green);
+    border: 1px solid var(--p-green);
+    color: #fff;
 }
 
 .profile-text-input-shell {

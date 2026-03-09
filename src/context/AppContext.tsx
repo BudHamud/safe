@@ -24,6 +24,7 @@ type GlobalContextType = {
     isClient: boolean;
     userId: string | null;
     userName: string | null;
+    userEmail: string | null;
     accessToken: string | null;
     userGoal: number;
     theme: string;
@@ -85,6 +86,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const [isClient, setIsClient] = useState(false);
     const [userId, setUserId] = useState<string | null>(null);
     const [userName, setUserName] = useState<string | null>(null);
+    const [userEmail, setUserEmail] = useState<string | null>(null);
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [userGoal, setUserGoal] = useState<number>(0);
     const [theme, setTheme] = useState("dark");
@@ -141,6 +143,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const clearPersistedSession = () => {
         setUserId(null);
         setUserName(null);
+        setUserEmail(null);
         setAccessToken(null);
         setUserGoal(0);
         setTransactions([]);
@@ -148,6 +151,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setPendingOpsCount(0);
         localStorage.removeItem("financeUserId");
         localStorage.removeItem("financeUserName");
+        localStorage.removeItem("financeUserEmail");
         localStorage.removeItem("financeAccessToken");
         localStorage.removeItem("financeRefreshToken");
         localStorage.removeItem("monthlyGoal");
@@ -268,12 +272,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const bootstrapSession = async () => {
             const storedUserId = localStorage.getItem("financeUserId");
             const storedUserName = localStorage.getItem("financeUserName");
+            const storedUserEmail = localStorage.getItem("financeUserEmail");
             const storedToken = localStorage.getItem("financeAccessToken");
             const storedRefreshToken = localStorage.getItem("financeRefreshToken");
 
             if (storedUserId && storedUserName && (storedToken || storedRefreshToken)) {
                 setUserId(storedUserId);
                 setUserName(storedUserName);
+                setUserEmail(storedUserEmail || null);
 
                 const tokenExpiresAt = storedToken ? getTokenExpiryTime(storedToken) : null;
                 const shouldRefreshToken = !storedToken || !tokenExpiresAt || tokenExpiresAt - Date.now() < 60_000;
@@ -330,7 +336,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                 const nextGoal = Number(data.monthlyGoal ?? 0);
                 const safeGoal = Number.isFinite(nextGoal) ? nextGoal : 0;
                 setUserGoal(safeGoal);
+                setUserEmail(typeof data.email === 'string' ? data.email : null);
                 localStorage.setItem('monthlyGoal', String(safeGoal));
+                if (typeof data.email === 'string') localStorage.setItem('financeUserEmail', data.email);
+                else localStorage.removeItem('financeUserEmail');
             }
         } catch (e) {
             console.error(e);
@@ -547,6 +556,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const handleLogin = (uid: string, un: string, token?: string, refreshToken?: string) => {
         setUserId(uid);
         setUserName(un);
+        setUserEmail(null);
         persistSessionTokens(token ?? null, refreshToken ?? null);
         localStorage.setItem("financeUserId", uid);
         localStorage.setItem("financeUserName", un);
@@ -638,7 +648,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     return (
         <AppContext.Provider value={{
-            isClient, userId, userName, accessToken, userGoal, theme, setTheme, globalCurrency,
+            isClient, userId, userName, userEmail, accessToken, userGoal, theme, setTheme, globalCurrency,
             transactions, mappedTransactions, selectedTransaction, travelModeStart,
             allCategories, totalIncome, totalExpense, currentBalance, savingsTarget,
             isOnline, pendingOpsCount, syncNow,

@@ -13,6 +13,7 @@ export default function ProfilePage() {
     return (
         <ProfileTab
             userName={context.userName!}
+            userEmail={context.userEmail}
             theme={context.theme}
             toggleTheme={context.toggleTheme}
             onLogout={() => {

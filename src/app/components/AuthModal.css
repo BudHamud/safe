@@ -67,6 +67,13 @@
     text-transform: uppercase;
 }
 
+.auth-recovery-copy {
+    margin: -0.3rem 0 0;
+    font-size: 0.76rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+}
+
 /* ── Toggle login / registro ── */
 .auth-toggle {
     display: grid;
@@ -178,10 +185,17 @@
 }
 
 /* ── Submit button ── */
+.auth-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-top: 0.1rem;
+}
+
 .auth-submit {
     width: 100%;
     background: var(--primary);
-    border: none;
+    border: 1px solid var(--primary);
     color: var(--primary-text);
     font-family: inherit;
     font-size: 0.78rem;
@@ -191,11 +205,22 @@
     padding: 0.9rem;
     cursor: pointer;
     transition: opacity 0.15s;
-    margin-top: 0.1rem;
+    border-radius: 2px;
 }
 
 .auth-submit:hover {
     opacity: 0.88;
+}
+
+.auth-submit-secondary {
+    background: var(--surface-alt);
+    border-color: var(--border);
+    color: var(--text-main);
+}
+
+.auth-submit-secondary:hover {
+    opacity: 1;
+    background: var(--surface);
 }
 
 .auth-submit:disabled {

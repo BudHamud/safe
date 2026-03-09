@@ -9,6 +9,7 @@ import {
 } from './movements.utils';
 import { useLanguage } from '../../context/LanguageContext';
 import { useDialog } from '../../context/DialogContext';
+import { useAppContext } from '../../context/AppContext';
 
 // ─── Import draft ─────────────────────────────────────────────────────────────
 
@@ -88,6 +89,7 @@ export const useMovementsLogic = (
 ) => {
     const { lang, t } = useLanguage();
     const dialog = useDialog();
+    const { userEmail } = useAppContext();
     const now = new Date();
     const sym = globalCurrency === 'ILS' ? '₪' : globalCurrency === 'EUR' ? '€' : '$';
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -326,7 +328,28 @@ export const useMovementsLogic = (
 
     const handleDeleteAll = async () => {
         if (!userId) return;
-        if (!await dialog.confirm({ message: t('movements.delete_all_confirm'), tone: 'danger' })) return;
+
+        if (!userEmail) {
+            await dialog.alert(t('movements.sensitive_email_missing'));
+            return;
+        }
+
+        const typedEmail = await dialog.prompt({
+            title: t('movements.delete_all_title'),
+            message: t('movements.delete_all_email_confirm'),
+            inputLabel: t('movements.sensitive_email_prompt_label'),
+            inputPlaceholder: t('movements.sensitive_email_prompt_placeholder'),
+            confirmLabel: t('btn.confirm'),
+            cancelLabel: t('btn.cancel'),
+            tone: 'danger',
+        });
+
+        if (typedEmail === null) return;
+
+        if (typedEmail.trim().toLowerCase() !== userEmail.trim().toLowerCase()) {
+            await dialog.alert(t('movements.sensitive_email_mismatch'));
+            return;
+        }
 
         try {
             const res = await fetch(`/api/transactions?userId=${userId}&id=all`, { method: 'DELETE' });
