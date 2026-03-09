@@ -180,7 +180,7 @@ export const ProfileTab = ({
     const normalizedUserName = userName.trim().toLowerCase();
     const normalizedUserEmail = (userEmail || '').trim().toLowerCase();
     const hideIdentityEmailAndPassword = normalizedUserName === 'tester' || normalizedUserEmail === 'tester@safed.com';
-    const maskedCurrentEmail = currentEmail ? '••••••••••' : t('profile.email_not_available');
+    const hiddenCurrentEmailLabel = currentEmail ? t('profile.email_hidden_security') : t('profile.email_not_available');
     const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
     const requestSensitiveEmailConfirmation = async (messageKey: TranslationKey) => {
@@ -857,7 +857,7 @@ export const ProfileTab = ({
                                         <div className="profile-form-group">
                                             <label>{t('profile.email_current')}</label>
                                             <div className="profile-text-input-shell">
-                                                <div className="profile-text-display profile-email-display">{maskedCurrentEmail}</div>
+                                                <div className="profile-text-display profile-email-display">{hiddenCurrentEmailLabel}</div>
                                             </div>
                                         </div>
 

@@ -40,9 +40,9 @@ const toOptions = (options: string | DialogOptions): DialogOptions => {
 export const DialogProvider = ({ children }: { children: React.ReactNode }) => {
     const { t } = useLanguage();
     const [dialog, setDialog] = useState<DialogState>(null);
-    const resolverRef = useRef<((value: boolean | string | null) => void) | null>(null);
+    const resolverRef = useRef<((value: unknown) => void) | null>(null);
 
-    const closeDialog = useCallback((result: boolean | string | null) => {
+    const closeDialog = useCallback((result: unknown) => {
         const resolver = resolverRef.current;
         resolverRef.current = null;
         setDialog(null);

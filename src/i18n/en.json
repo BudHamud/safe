@@ -286,6 +286,7 @@
     "profile.email_current": "Current email",
     "profile.email_new": "New email",
     "profile.email_not_available": "No email available",
+    "profile.email_hidden_security": "Hidden for security",
     "profile.email_required": "You need to enter a new email.",
     "profile.email_invalid": "Enter a valid email address.",
     "profile.email_same": "That email is already the current one.",
