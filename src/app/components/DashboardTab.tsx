@@ -3,6 +3,7 @@ import { Transaction } from "../../types";
 import { useRouter } from 'next/navigation';
 import { formatCurrency } from '../../lib/utils';
 import { useLanguage } from '../../context/LanguageContext';
+import { parseDate } from './movements.utils';
 
 type DashboardTabProps = {
     transactions: Transaction[];
@@ -83,26 +84,17 @@ export const DashboardTab = ({
         return `${t('dashboard.every_n_months')} ${periodicity}M`;
     };
 
-    const parseTxDate = (d: string) => {
-        if (!d || d === 'Hoy') return new Date();
-        if (d === 'Ayer') { const yesterday = new Date(); yesterday.setDate(now.getDate() - 1); return yesterday; }
-        const parts = d.split(d.includes('/') ? '/' : '-');
-        if (parts.length < 2) return new Date(0);
-        if (parts[0].length === 4) return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]) || 1);
-        return new Date(Number(parts[2]) || curYear, Number(parts[1]) - 1, Number(parts[0]));
-    };
-
     // Dashboard context: Current month stats
     const currentMonthTxs = transactions.filter(t => {
-        const d = parseTxDate(t.date);
+        const d = parseDate(t.date);
         return d.getMonth() === curMonth && d.getFullYear() === curYear || t.date === 'Hoy' || t.date === 'Ayer';
     });
 
     const monthIncome = currentMonthTxs.filter(t => t.type === 'income').reduce((acc, curr) => acc + curr.amount, 0);
     const monthExpense = currentMonthTxs.filter(t => t.type === 'expense').reduce((acc, curr) => acc + curr.amount, 0);
 
-    // Goal: only this month's expenses, excluding recurring ones
-    const expensesForGoal = currentMonthTxs.filter(t => t.type === 'expense' && !t.excludeFromBudget && t.goalType !== 'mensual' && t.goalType !== 'periodo');
+    // Goal: include all expenses in the month except the ones explicitly excluded from goal.
+    const expensesForGoal = currentMonthTxs.filter(t => t.type === 'expense' && !t.excludeFromBudget);
     const totalExpenseForGoal = expensesForGoal.reduce((acc, curr) => acc + curr.amount, 0);
     const progressPct = monthlyGoal > 0 ? Math.min((totalExpenseForGoal / monthlyGoal) * 100, 100) : 0;
     const radius = 38;
@@ -120,8 +112,8 @@ export const DashboardTab = ({
     const prevYear = curMonth === 0 ? curYear - 1 : curYear;
     const prevMonthSpending = transactions
         .filter(t => {
-            const d = parseTxDate(t.date);
-            return d.getMonth() === prevMonth && d.getFullYear() === prevYear && t.type === 'expense' && !t.excludeFromBudget && t.goalType !== 'mensual' && t.goalType !== 'periodo';
+            const d = parseDate(t.date);
+            return d.getMonth() === prevMonth && d.getFullYear() === prevYear && t.type === 'expense' && !t.excludeFromBudget;
         })
         .reduce((acc, t) => acc + t.amount, 0);
 
@@ -131,13 +123,14 @@ export const DashboardTab = ({
     }
     const topCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 3);
     const topSum = topCats.reduce((acc, c) => acc + c[1], 0);
-    let currentCatOffset = 0;
     const palette = ['var(--primary)', 'var(--accent)', 'var(--text-main)'];
-    const topCatSegments = topCats.map((cat) => {
+    const topCatSegments = topCats.map((cat, index) => {
         const pct = topSum > 0 ? (cat[1] / topSum) * 100 : 0;
         const segmentDasharray = `${(pct / 100) * circumference} ${circumference}`;
-        const segmentDashoffset = -currentCatOffset;
-        currentCatOffset += (pct / 100) * circumference;
+        const previousAmount = topCats
+            .slice(0, index)
+            .reduce((acc, [, amount]) => acc + amount, 0);
+        const segmentDashoffset = -((topSum > 0 ? previousAmount / topSum : 0) * circumference);
         return { tag: cat[0], pct, segmentDasharray, segmentDashoffset, amount: cat[1] };
     });
 
@@ -155,7 +148,7 @@ export const DashboardTab = ({
         const cleanDesc = t.desc.trim().toLowerCase();
         const cleanTag = t.tag.trim().toLowerCase();
         const key = `${cleanDesc}-${cleanTag}`;
-        const txDate = parseTxDate(t.date);
+        const txDate = parseDate(t.date);
 
         // Recurrence logic: 
         // 1. Mensual: every month.
@@ -175,7 +168,7 @@ export const DashboardTab = ({
         const isPaidThisMonth = (txDate.getMonth() === curMonth && txDate.getFullYear() === curYear) || t.date === 'Hoy';
 
         const existing = monthlyMasterMap.get(key);
-        if (!existing || parseTxDate(existing.latest.date) < txDate) {
+        if (!existing || parseDate(existing.latest.date) < txDate) {
             monthlyMasterMap.set(key, {
                 latest: t,
                 isPaid: (existing?.isPaid || isPaidThisMonth),

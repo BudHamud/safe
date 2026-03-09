@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from "react";
 import { Transaction, Category } from "../types";
 import {
     cacheTransactions,
@@ -62,7 +62,7 @@ type GlobalContextType = {
 
     setTheme: (t: string) => void;
     toggleTheme: () => void;
-    handleLogin: (uid: string, un: string, token?: string) => void;
+    handleLogin: (uid: string, un: string, token?: string, refreshToken?: string) => void;
     handleLogout: () => void;
     handleCurrencyChange: (curr: 'ILS' | 'USD' | 'ARS' | 'EUR') => void;
     toggleTravelMode: () => Promise<void>;
@@ -106,6 +106,37 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const [isColorMode, setIsColorMode] = useState(false);
     const [activeColorZone, setActiveColorZone] = useState<string | null>(null);
     const [widgetColors, setWidgetColorsState] = useState<WidgetColors>({});
+    const refreshRequestRef = useRef<Promise<string | null> | null>(null);
+
+    const getStoredAccessToken = () => {
+        if (typeof window === 'undefined') return accessToken;
+        return localStorage.getItem("financeAccessToken") || accessToken;
+    };
+
+    const getStoredRefreshToken = () => {
+        if (typeof window === 'undefined') return null;
+        return localStorage.getItem("financeRefreshToken");
+    };
+
+    const persistSessionTokens = (nextAccessToken: string | null, nextRefreshToken?: string | null) => {
+        setAccessToken(nextAccessToken);
+
+        if (typeof window === 'undefined') return;
+
+        if (nextAccessToken) {
+            localStorage.setItem("financeAccessToken", nextAccessToken);
+        } else {
+            localStorage.removeItem("financeAccessToken");
+        }
+
+        if (nextRefreshToken !== undefined) {
+            if (nextRefreshToken) {
+                localStorage.setItem("financeRefreshToken", nextRefreshToken);
+            } else {
+                localStorage.removeItem("financeRefreshToken");
+            }
+        }
+    };
 
     const clearPersistedSession = () => {
         setUserId(null);
@@ -118,7 +149,89 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem("financeUserId");
         localStorage.removeItem("financeUserName");
         localStorage.removeItem("financeAccessToken");
+        localStorage.removeItem("financeRefreshToken");
         localStorage.removeItem("monthlyGoal");
+    };
+
+    const refreshAccessToken = async (): Promise<string | null> => {
+        if (refreshRequestRef.current) return refreshRequestRef.current;
+
+        const refreshToken = getStoredRefreshToken();
+        if (!refreshToken) return null;
+
+        refreshRequestRef.current = (async () => {
+            try {
+                const res = await fetch('/api/auth/refresh', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refreshToken }),
+                });
+
+                if (!res.ok) {
+                    clearPersistedSession();
+                    return null;
+                }
+
+                const data = await res.json();
+                if (!data?.access_token) {
+                    clearPersistedSession();
+                    return null;
+                }
+
+                persistSessionTokens(data.access_token, data.refresh_token ?? refreshToken);
+                return data.access_token as string;
+            } catch (error) {
+                console.error('No se pudo refrescar la sesión', error);
+                return null;
+            } finally {
+                refreshRequestRef.current = null;
+            }
+        })();
+
+        return refreshRequestRef.current;
+    };
+
+    const authenticatedFetch = async (
+        input: RequestInfo | URL,
+        init: RequestInit = {},
+        preferredToken?: string | null,
+    ) => {
+        const buildHeaders = (token?: string | null) => {
+            const headers = new Headers(init.headers ?? {});
+            if (token) headers.set('Authorization', `Bearer ${token}`);
+            return headers;
+        };
+
+        const firstToken = preferredToken ?? getStoredAccessToken();
+        let response = await fetch(input, { ...init, headers: buildHeaders(firstToken) });
+
+        if (response.status !== 401) return response;
+
+        const nextToken = await refreshAccessToken();
+        if (!nextToken) {
+            clearPersistedSession();
+            return response;
+        }
+
+        response = await fetch(input, { ...init, headers: buildHeaders(nextToken) });
+        if (response.status === 401) {
+            clearPersistedSession();
+        }
+
+        return response;
+    };
+
+    const getTokenExpiryTime = (token: string) => {
+        try {
+            const payload = token.split('.')[1];
+            if (!payload) return null;
+
+            const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+            const decoded = JSON.parse(window.atob(normalized));
+            return typeof decoded.exp === 'number' ? decoded.exp * 1000 : null;
+        } catch {
+            return null;
+        }
     };
 
     useEffect(() => {
@@ -148,22 +261,42 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             if (css) injectColorStylesheet(css);
         } catch (e) { /* ignorar */ }
 
-        const storedUserId = localStorage.getItem("financeUserId");
-        const storedUserName = localStorage.getItem("financeUserName");
-        const storedToken = localStorage.getItem("financeAccessToken");
-        if (storedUserId && storedUserName && storedToken) {
-            setUserId(storedUserId);
-            setUserName(storedUserName);
-            setAccessToken(storedToken);
-            loadUserData(storedUserId, storedToken);
-            getPendingOpsCount(storedUserId).then(setPendingOpsCount);
-        } else if (storedUserId || storedUserName || storedToken) {
-            clearPersistedSession();
-        }
-
         localStorage.removeItem('financeTravelModeStart');
         setTravelModeStart(null);
         document.documentElement.removeAttribute('data-travel');
+
+        const bootstrapSession = async () => {
+            const storedUserId = localStorage.getItem("financeUserId");
+            const storedUserName = localStorage.getItem("financeUserName");
+            const storedToken = localStorage.getItem("financeAccessToken");
+            const storedRefreshToken = localStorage.getItem("financeRefreshToken");
+
+            if (storedUserId && storedUserName && (storedToken || storedRefreshToken)) {
+                setUserId(storedUserId);
+                setUserName(storedUserName);
+
+                const tokenExpiresAt = storedToken ? getTokenExpiryTime(storedToken) : null;
+                const shouldRefreshToken = !storedToken || !tokenExpiresAt || tokenExpiresAt - Date.now() < 60_000;
+
+                let sessionToken = storedToken;
+                if (shouldRefreshToken && storedRefreshToken) {
+                    sessionToken = await refreshAccessToken();
+                } else if (storedToken) {
+                    setAccessToken(storedToken);
+                }
+
+                if (sessionToken) {
+                    loadUserData(storedUserId, sessionToken);
+                    getPendingOpsCount(storedUserId).then(setPendingOpsCount);
+                } else {
+                    clearPersistedSession();
+                }
+            } else if (storedUserId || storedUserName || storedToken || storedRefreshToken) {
+                clearPersistedSession();
+            }
+        };
+
+        void bootstrapSession();
 
         return () => {
             window.removeEventListener('online', goOnline);
@@ -171,18 +304,27 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         };
     }, []);
 
+    useEffect(() => {
+        if (!userId) return;
+
+        const token = getStoredAccessToken();
+        if (!token) return;
+
+        const expiresAt = getTokenExpiryTime(token);
+        if (!expiresAt) return;
+
+        const timeoutMs = Math.max(expiresAt - Date.now() - 60_000, 30_000);
+        const timer = window.setTimeout(() => {
+            void refreshAccessToken();
+        }, timeoutMs);
+
+        return () => window.clearTimeout(timer);
+    }, [userId, accessToken]);
+
     const loadUserData = async (uid: string, token?: string | null) => {
-        const tok = token ?? accessToken;
-        if (!tok) return;
-        loadUserTransactions(uid, tok);
+        loadUserTransactions(uid, token);
         try {
-            const res = await fetch(`/api/user`, {
-                headers: tok ? { 'Authorization': `Bearer ${tok}` } : {},
-            });
-            if (res.status === 401) {
-                clearPersistedSession();
-                return;
-            }
+            const res = await authenticatedFetch('/api/user', {}, token);
             if (res.ok) {
                 const data = await res.json();
                 const nextGoal = Number(data.monthlyGoal ?? 0);
@@ -196,16 +338,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const loadUserTransactions = async (uid: string, token?: string | null) => {
-        const tok = token ?? accessToken;
-        if (!tok) return;
         try {
-            const res = await fetch(`/api/transactions`, {
-                headers: tok ? { 'Authorization': `Bearer ${tok}` } : {},
-            });
-            if (res.status === 401) {
-                clearPersistedSession();
-                return;
-            }
+            const res = await authenticatedFetch('/api/transactions', {}, token);
             if (res.ok) {
                 const data = await res.json();
                 setTransactions(data);
@@ -238,11 +372,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
 
         try {
-            const res = await fetch('/api/transactions', {
+            const res = await authenticatedFetch('/api/transactions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
                 },
                 body: JSON.stringify({ ...newTx, userId })
             });
@@ -284,9 +417,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
 
         try {
-            const res = await fetch(`/api/transactions?id=${txId}`, {
+            const res = await authenticatedFetch(`/api/transactions?id=${txId}`, {
                 method: 'DELETE',
-                headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
             });
             if (res.ok) {
                 await removeCachedTransaction(txId);
@@ -309,11 +441,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         for (const op of ops) {
             try {
                 if (op.opType === 'create') {
-                    const res = await fetch('/api/transactions', {
+                    const res = await authenticatedFetch('/api/transactions', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
                         },
                         body: JSON.stringify({ ...op.data, userId }),
                     });
@@ -326,9 +457,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                         synced++;
                     } else { failed++; }
                 } else if (op.opType === 'delete') {
-                    const res = await fetch(`/api/transactions?id=${op.data.id}`, {
+                    const res = await authenticatedFetch(`/api/transactions?id=${op.data.id}`, {
                         method: 'DELETE',
-                        headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
                     });
                     if (res.ok) {
                         await removeCachedTransaction(op.data.id);
@@ -414,13 +544,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const handleLogin = (uid: string, un: string, token?: string) => {
+    const handleLogin = (uid: string, un: string, token?: string, refreshToken?: string) => {
         setUserId(uid);
         setUserName(un);
-        if (token) {
-            setAccessToken(token);
-            localStorage.setItem("financeAccessToken", token);
-        }
+        persistSessionTokens(token ?? null, refreshToken ?? null);
         localStorage.setItem("financeUserId", uid);
         localStorage.setItem("financeUserName", un);
         loadUserData(uid, token);

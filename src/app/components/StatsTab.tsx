@@ -3,6 +3,7 @@ import { Transaction } from "../../types";
 import { formatCurrency } from "../../lib/utils";
 import { useSubViewHistory } from '../../hooks/useSubViewHistory';
 import { useLanguage } from '../../context/LanguageContext';
+import { parseDate } from './movements.utils';
 
 type StatsTabProps = {
     transactions: Transaction[];
@@ -58,20 +59,12 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
     );
 
     const getYearMonth = (dateStr: string) => {
-        let d = dateStr.replace(/-/g, '/');
-        let year = "", month = "";
-        if (d.match(/^\d{4}\/\d{2}\/\d{2}$/)) {
-            const parts = d.split('/'); year = parts[0]; month = parts[1];
-        } else if (d.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/)) {
-            const parts = d.split('/');
-            year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
-            month = parts[1].padStart(2, '0');
-        } else if (d.match(/^\d{4}-\d{2}-\d{2}T/)) {
-            const dObj = new Date(d);
-            year = dObj.getFullYear().toString();
-            month = (dObj.getMonth() + 1).toString().padStart(2, '0');
-        }
-        return { year, month };
+        const parsed = parseDate(dateStr);
+        if (parsed.getTime() === 0) return { year: '', month: '' };
+        return {
+            year: parsed.getFullYear().toString(),
+            month: String(parsed.getMonth() + 1).padStart(2, '0')
+        };
     };
 
     const availableYears = Array.from(new Set(transactions.map(t => getYearMonth(t.date).year).filter(y => y.length === 4))).sort().reverse();
@@ -91,7 +84,7 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
     const totalExpense = filteredTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
     const currentBalance = totalIncome - totalExpense;
 
-    const expensesForGoal = filteredTransactions.filter(t => t.type === 'expense' && !t.excludeFromBudget && t.goalType !== 'mensual' && t.goalType !== 'periodo');
+    const expensesForGoal = filteredTransactions.filter(t => t.type === 'expense' && !t.excludeFromBudget);
     const totalExpenseForGoal = expensesForGoal.reduce((acc, t) => acc + t.amount, 0);
     const progress = Math.min((totalExpenseForGoal / monthlyGoal) * 100, 100);
 
@@ -105,7 +98,7 @@ export const StatsTab = ({ transactions, globalCurrency, monthlyGoal }: StatsTab
     const trendData = useMemo(() => {
         const monthTotals = new Array(12).fill(0);
         transactions.forEach(t => {
-            if (t.type === 'income' || t.excludeFromBudget || t.goalType === 'mensual' || t.goalType === 'periodo') return;
+            if (t.type === 'income' || t.excludeFromBudget) return;
             const { year, month } = getYearMonth(t.date);
             if (year === selectedYear && month.length === 2) {
                 const mIdx = parseInt(month, 10) - 1;

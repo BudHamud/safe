@@ -19,7 +19,7 @@ export default function ProfilePage() {
                 context.handleLogout();
                 router.push('/app');
             }}
-            transactions={context.transactions}
+            transactions={context.mappedTransactions}
             userId={context.userId}
             monthlyGoal={context.userGoal}
             onUpdate={() => {

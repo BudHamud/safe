@@ -9,6 +9,7 @@ import { BankSyncExplainer } from './BankSyncExplainer';
 import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 import { useSubViewHistory } from '../../hooks/useSubViewHistory';
 import { useDialog } from '../../context/DialogContext';
+import { parseDate } from './movements.utils';
 
 type ProfileTabProps = {
     userName: string;
@@ -152,36 +153,13 @@ export const ProfileTab = ({
 
     const currentMonthExpense = transactions
         .filter(t => {
-            const parts = t.date.split(t.date.includes('/') ? '/' : '-');
-            let dMonth;
-            let dYear;
+            const parsed = parseDate(t.date);
+            if (parsed.getTime() === 0) return false;
 
-            if (t.date === 'Hoy') {
-                dMonth = curMonth;
-                dYear = curYear;
-            } else if (t.date === 'Ayer') {
-                const yesterday = new Date(currentDate);
-                yesterday.setDate(currentDate.getDate() - 1);
-                dMonth = yesterday.getMonth();
-                dYear = yesterday.getFullYear();
-            } else if (parts.length >= 2) {
-                if (parts[0].length === 4) {
-                    dYear = Number(parts[0]);
-                    dMonth = Number(parts[1]) - 1;
-                } else {
-                    dYear = Number(parts[2]) || curYear;
-                    dMonth = Number(parts[1]) - 1;
-                }
-            } else {
-                return false;
-            }
-
-            return dMonth === curMonth
-                && dYear === curYear
+            return parsed.getMonth() === curMonth
+                && parsed.getFullYear() === curYear
                 && t.type === 'expense'
-                && !t.excludeFromBudget
-                && t.goalType !== 'mensual'
-                && t.goalType !== 'periodo';
+                && !t.excludeFromBudget;
         })
         .reduce((acc, t) => acc + t.amount, 0);
     const goalPct = monthlyGoal > 0 ? Math.min(Math.round((currentMonthExpense / monthlyGoal) * 100), 100) : 0;

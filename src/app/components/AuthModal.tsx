@@ -21,7 +21,7 @@ type AuthErrorResponse = {
 };
 
 type AuthModalProps = {
-    onLogin: (userId: string, username: string, token?: string) => void;
+    onLogin: (userId: string, username: string, token?: string, refreshToken?: string) => void;
 };
 export const AuthModal = ({ onLogin }: AuthModalProps) => {
     const { t } = useLanguage();
@@ -72,7 +72,7 @@ export const AuthModal = ({ onLogin }: AuthModalProps) => {
                 await dialog.alert(getAuthErrorMessage(data));
                 return;
             }
-            onLogin(data.id, data.username, data.access_token);
+            onLogin(data.id, data.username, data.access_token, data.refresh_token);
         } catch (e) {
             console.error(e);
             await dialog.alert(t('auth.server_connection_error'));
