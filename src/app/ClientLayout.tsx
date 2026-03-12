@@ -7,6 +7,10 @@ import { NewOrderModal } from "./components/orders";
 import { TransactionDetailsModal } from "./components/transactions";
 import { BankNotifToast } from "./components/bank";
 import { ColorCustomizerOverlay } from "./components/customization";
+import { DashboardTab } from "./components/dashboard";
+import { MovementsTab } from "./components/movements";
+import { StatsTab } from "./components/stats";
+import { ProfileTab } from "./components/profile";
 import { useAppContext } from "../context/AppContext";
 import { useBankNotifications, PendingBankTransaction } from "../hooks/useBankNotifications";
 import { useLanguage } from "../context/LanguageContext";
@@ -14,11 +18,28 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAndroidBackButton } from "../hooks/useAndroidBackButton";
 import "./page.css";
 
+type AppTab = 'dashboard' | 'movements' | 'stats' | 'profile';
+
+const TAB_PATHS: Record<AppTab, string> = {
+    dashboard: '/app',
+    movements: '/app/movements',
+    stats: '/app/stats',
+    profile: '/app/profile',
+};
+
+const getTabFromPath = (path: string): AppTab => {
+    if (path.includes('/app/movements')) return 'movements';
+    if (path.includes('/app/stats')) return 'stats';
+    if (path.includes('/app/profile')) return 'profile';
+    return 'dashboard';
+};
+
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     const context = useAppContext();
     const pathname = usePathname();
     const router = useRouter();
     const { t } = useLanguage();
+    const [activeTab, setActiveTab] = useState<AppTab>(() => getTabFromPath(pathname));
 
     // Handle Android hardware back button
     useAndroidBackButton();
@@ -112,6 +133,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         router.prefetch('/app/profile');
     }, [context.userName, router]);
 
+    useEffect(() => {
+        setActiveTab(getTabFromPath(pathname));
+    }, [pathname]);
+
+    const handleNavigate = React.useCallback((nextTab: AppTab) => {
+        if (nextTab === activeTab) return;
+
+        setActiveTab(nextTab);
+        window.history.pushState(null, '', TAB_PATHS[nextTab]);
+    }, [activeTab]);
+
     if (!context.isClient) return null;
 
     // Sin sesión: devolvemos children directo (la página /app lo maneja con AuthModal)
@@ -124,10 +156,77 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         );
     }
 
-    let activeTab = "dashboard";
-    if (pathname.includes("/app/movements")) activeTab = "movements";
-    else if (pathname.includes("/app/stats")) activeTab = "stats";
-    else if (pathname.includes("/app/profile")) activeTab = "profile";
+    const renderActiveTab = () => {
+        switch (activeTab) {
+            case 'movements':
+                if (!context.userId) return null;
+                return (
+                    <MovementsTab
+                        transactions={context.mappedTransactions}
+                        userId={context.userId}
+                        onTransactionsUpdated={() => {
+                            if (context.userId) context.loadUserTransactions(context.userId);
+                        }}
+                        onTransactionClick={context.setSelectedTransaction}
+                        globalCurrency={context.globalCurrency}
+                        monthlyGoal={context.userGoal}
+                        availableCategories={context.allCategories}
+                    />
+                );
+            case 'stats':
+                if (!context.userId) return null;
+                return (
+                    <StatsTab
+                        transactions={context.mappedTransactions}
+                        globalCurrency={context.globalCurrency}
+                        monthlyGoal={context.userGoal}
+                    />
+                );
+            case 'profile':
+                if (!context.userId) return null;
+                return (
+                    <ProfileTab
+                        userName={context.userName!}
+                        userEmail={context.userEmail}
+                        theme={context.theme}
+                        toggleTheme={context.toggleTheme}
+                        onLogout={() => {
+                            context.handleLogout();
+                            router.push('/app');
+                        }}
+                        transactions={context.mappedTransactions}
+                        userId={context.userId}
+                        monthlyGoal={context.userGoal}
+                        onUpdate={() => {
+                            if (context.userId) context.loadUserData(context.userId);
+                        }}
+                        globalCurrency={context.globalCurrency}
+                        onCurrencyChange={context.handleCurrencyChange}
+                        availableCategories={context.allCategories}
+                        onCategoryChangeInfo={() => context.setCatSignal(c => c + 1)}
+                    />
+                );
+            case 'dashboard':
+            default:
+                return (
+                    <DashboardTab
+                        transactions={context.mappedTransactions}
+                        totalIncome={context.totalIncome}
+                        totalExpense={context.totalExpense}
+                        currentBalance={context.currentBalance}
+                        monthlyGoal={context.userGoal}
+                        savingsTarget={context.savingsTarget}
+                        onTransactionClick={context.setSelectedTransaction}
+                        globalCurrency={context.globalCurrency}
+                        isTravelMode={!!context.travelModeStart}
+                        toggleTravelMode={context.toggleTravelMode}
+                        allTransactions={context.transactions}
+                        setIsAddModalOpen={context.setIsAddModalOpen}
+                        setAddModalInitialData={context.setAddModalInitialData}
+                    />
+                );
+        }
+    };
 
     return (
         <div className="app-wrapper">
@@ -151,6 +250,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 toggleTravelMode={context.toggleTravelMode}
                 pendingCount={pending.length}
                 onBellClick={() => setNotifPanelOpen(true)}
+                onNavigate={handleNavigate}
             />
 
             <header className="app-header">
@@ -181,7 +281,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             </header>
 
             <main className="main-content">
-                {children}
+                {context.userName ? renderActiveTab() : children}
             </main>
 
             <button

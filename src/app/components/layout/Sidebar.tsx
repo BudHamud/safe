@@ -1,14 +1,14 @@
 import React from 'react';
 import { IconShapes } from './Icons';
-import Link from 'next/link';
-import Image from 'next/image';
 import { useLanguage } from '../../../context/LanguageContext';
 import { Logo } from './Logo';
+
+type AppTab = 'dashboard' | 'movements' | 'stats' | 'profile';
 
 type SidebarProps = {
     theme: string;
     toggleTheme: () => void;
-    activeTab: string;
+    activeTab: AppTab;
     userName: string;
     onLogout: () => void;
     onAddClick: () => void;
@@ -16,10 +16,11 @@ type SidebarProps = {
     toggleTravelMode: () => Promise<void>;
     pendingCount?: number;
     onBellClick?: () => void;
+    onNavigate: (tab: AppTab) => void;
 };
 
 export const Sidebar = ({
-    activeTab, onAddClick, pendingCount = 0, onBellClick,
+    activeTab, onAddClick, pendingCount = 0, onBellClick, onNavigate,
 }: SidebarProps) => {
     const { t } = useLanguage();
 
@@ -31,14 +32,24 @@ export const Sidebar = ({
             </div>
 
             <nav className="nav-menu">
-                <Link href="/app" scroll={false} className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} aria-current={activeTab === 'dashboard' ? 'page' : undefined}>
+                <button
+                    type="button"
+                    onClick={() => onNavigate('dashboard')}
+                    className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+                    aria-current={activeTab === 'dashboard' ? 'page' : undefined}
+                >
                     <IconShapes type="dashboard" />
                     <span>{t('nav.dashboard')}</span>
-                </Link>
-                <Link href="/app/movements" scroll={false} className={`nav-item ${activeTab === 'movements' ? 'active' : ''}`} aria-current={activeTab === 'movements' ? 'page' : undefined}>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onNavigate('movements')}
+                    className={`nav-item ${activeTab === 'movements' ? 'active' : ''}`}
+                    aria-current={activeTab === 'movements' ? 'page' : undefined}
+                >
                     <IconShapes type="card" />
                     <span>{t('nav.movements')}</span>
-                </Link>
+                </button>
 
                 <button className="app-add-btn" onClick={onAddClick}>
                     <div className="add-btn-icon">
@@ -46,14 +57,24 @@ export const Sidebar = ({
                     </div>
                 </button>
 
-                <Link href="/app/stats" scroll={false} className={`nav-item ${activeTab === 'stats' ? 'active' : ''}`} aria-current={activeTab === 'stats' ? 'page' : undefined}>
+                <button
+                    type="button"
+                    onClick={() => onNavigate('stats')}
+                    className={`nav-item ${activeTab === 'stats' ? 'active' : ''}`}
+                    aria-current={activeTab === 'stats' ? 'page' : undefined}
+                >
                     <IconShapes type="chart" />
                     <span>{t('nav.stats')}</span>
-                </Link>
-                <Link href="/app/profile" scroll={false} className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} aria-current={activeTab === 'profile' ? 'page' : undefined}>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onNavigate('profile')}
+                    className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
+                    aria-current={activeTab === 'profile' ? 'page' : undefined}
+                >
                     <IconShapes type="user" />
                     <span>{t('nav.profile')}</span>
-                </Link>
+                </button>
             </nav>
 
             {/* Footer: solo campana de notificaciones */}
