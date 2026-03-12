@@ -210,8 +210,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     await context.handleDeleteTransaction(id);
                     context.setSelectedTransaction(null);
                 }}
-                onUpdate={() => {
-                    if (context.userId) context.loadUserTransactions(context.userId);
+                onUpdate={(updatedTransaction) => {
+                    void context.updateTransaction(updatedTransaction);
                     context.setSelectedTransaction(null);
                 }}
                 globalCurrency={context.globalCurrency}

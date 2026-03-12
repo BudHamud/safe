@@ -89,7 +89,7 @@ export const useMovementsLogic = (
 ) => {
     const { lang, t } = useLanguage();
     const dialog = useDialog();
-    const { userEmail } = useAppContext();
+    const { userEmail, authenticatedFetch } = useAppContext();
     const now = new Date();
     const sym = globalCurrency === 'ILS' ? '₪' : globalCurrency === 'EUR' ? '€' : '$';
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -304,7 +304,7 @@ export const useMovementsLogic = (
 
             for (let i = 0; i < batch.length; i += CHUNK_SIZE) {
                 const chunk = batch.slice(i, i + CHUNK_SIZE);
-                const res = await fetch('/api/transactions', {
+                const res = await authenticatedFetch('/api/transactions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(chunk),
@@ -352,7 +352,7 @@ export const useMovementsLogic = (
         }
 
         try {
-            const res = await fetch(`/api/transactions?userId=${userId}&id=all`, { method: 'DELETE' });
+            const res = await authenticatedFetch(`/api/transactions?userId=${userId}&id=all`, { method: 'DELETE' });
             if (res.ok) {
                 onTransactionsUpdated();
             } else {

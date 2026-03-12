@@ -4,12 +4,13 @@ import { formatCurrency } from '../../../lib/utils';
 import { formatDate } from '../movements/movements.utils';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useDialog } from '../../../context/DialogContext';
+import { useAppContext } from '../../../context/AppContext';
 
 type TransactionDetailsModalProps = {
     transaction: Transaction | null;
     onClose: () => void;
     onDelete: (id: string) => void;
-    onUpdate?: () => void;
+    onUpdate?: (updatedTransaction: Transaction) => void;
     globalCurrency: string;
     availableCategories: Category[];
 };
@@ -77,7 +78,7 @@ type TransactionDetailsModalContentProps = {
     transaction: Transaction;
     onClose: () => void;
     onDelete: (id: string) => void;
-    onUpdate?: () => void;
+    onUpdate?: (updatedTransaction: Transaction) => void;
     globalCurrency: string;
     availableCategories: Category[];
 };
@@ -85,6 +86,7 @@ type TransactionDetailsModalContentProps = {
 const TransactionDetailsModalContent = ({ transaction, onClose, onDelete, onUpdate, globalCurrency, availableCategories }: TransactionDetailsModalContentProps) => {
     const { t } = useLanguage();
     const dialog = useDialog();
+    const { authenticatedFetch } = useAppContext();
     const sym = globalCurrency === 'ILS' ? '₪' : (globalCurrency === 'EUR' ? '€' : '$');
     const [viewMode, setViewMode] = useState<'details' | 'edit' | 'confirm_delete'>('details');
     const [formData, setFormData] = useState<Partial<Transaction>>({
@@ -136,12 +138,15 @@ const TransactionDetailsModalContent = ({ transaction, onClose, onDelete, onUpda
                 amountEUR,
             };
 
-            const res = await fetch('/api/transactions', {
+            const res = await authenticatedFetch('/api/transactions', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(finalData),
             });
-            if (res.ok) { onUpdate?.(); }
+            if (res.ok) {
+                const updatedTransaction = await res.json();
+                onUpdate?.(updatedTransaction);
+            }
             else { await dialog.alert(t('details.save_error')); }
         } catch (e) {
             console.error(e);
@@ -378,12 +383,15 @@ const TransactionDetailsModalContent = ({ transaction, onClose, onDelete, onUpda
                                 <button
                                     onClick={async () => {
                                         if (await dialog.confirm({ message: t('details.cancel_recurrence_confirm'), tone: 'danger' })) {
-                                            const res = await fetch('/api/transactions', {
+                                            const res = await authenticatedFetch('/api/transactions', {
                                                 method: 'PUT',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({ ...transaction, isCancelled: true }),
                                             });
-                                            if (res.ok) onUpdate?.();
+                                            if (res.ok) {
+                                                const updatedTransaction = await res.json();
+                                                onUpdate?.(updatedTransaction);
+                                            }
                                         }
                                     }}
                                     style={{ width: '100%', background: 'transparent', border: `1px solid ${RED}44`, borderRadius: '8px', color: RED, padding: '0.8rem', fontWeight: 800, fontSize: '0.72rem', letterSpacing: '0.08em', cursor: 'pointer', textTransform: 'uppercase', fontFamily: 'inherit' }}

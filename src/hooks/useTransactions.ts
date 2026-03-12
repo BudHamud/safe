@@ -112,6 +112,14 @@ export function useTransactions(
         } catch (e) { console.error("No se pudo borrar", e); }
     };
 
+    const updateTransaction = async (updatedTx: Transaction) => {
+        if (!userId) return;
+
+        await putCachedTransaction(userId, updatedTx);
+        setTransactions(prev => prev.map(t => t.id === updatedTx.id ? updatedTx : t));
+        setSelectedTransaction(prev => prev?.id === updatedTx.id ? updatedTx : prev);
+    };
+
     const allCategories = useMemo(() => {
         const catMap = new Map<string, Category>();
         const normalize = (s: string) => s.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -175,6 +183,7 @@ export function useTransactions(
         isAddModalOpen, setIsAddModalOpen,
         addModalInitialData, setAddModalInitialData,
         loadUserTransactions, saveTransaction, handleDeleteTransaction,
+        updateTransaction,
         allCategories, mappedTransactions, totalIncome, totalExpense, currentBalance,
     };
 }

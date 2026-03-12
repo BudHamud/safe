@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { Transaction, Category } from '../../../types';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useDialog } from '../../../context/DialogContext';
+import { useAppContext } from '../../../context/AppContext';
 
 type TransactionEditViewProps = {
     transaction: Transaction;
     globalCurrency: string;
     categories: Category[];
     onCancel: () => void;
-    onSaveSuccess: () => void;
+    onSaveSuccess: (updatedTransaction: Transaction) => void;
     onDeleteRequest: () => void;
 };
 
@@ -64,6 +65,7 @@ export const TransactionEditView = ({
 }: TransactionEditViewProps) => {
     const { t } = useLanguage();
     const dialog = useDialog();
+    const { authenticatedFetch } = useAppContext();
 
     const [formData, setFormData] = useState<Partial<Transaction>>({
         ...transaction,
@@ -107,12 +109,15 @@ export const TransactionEditView = ({
                 amountEUR
             };
 
-            const res = await fetch('/api/transactions', {
+            const res = await authenticatedFetch('/api/transactions', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(finalData)
             });
-            if (res.ok) { onSaveSuccess(); }
+            if (res.ok) {
+                const updatedTransaction = await res.json();
+                onSaveSuccess(updatedTransaction);
+            }
             else { await dialog.alert(t('details.save_error')); }
         } catch (e) {
             console.error(e);
@@ -296,12 +301,15 @@ export const TransactionEditView = ({
                         <button
                             onClick={async () => {
                                 if (await dialog.confirm({ message: t('details.cancel_recurrence_confirm'), tone: 'danger' })) {
-                                    const res = await fetch('/api/transactions', {
+                                    const res = await authenticatedFetch('/api/transactions', {
                                         method: 'PUT',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ ...transaction, isCancelled: true })
                                     });
-                                    if (res.ok) onSaveSuccess();
+                                    if (res.ok) {
+                                        const updatedTransaction = await res.json();
+                                        onSaveSuccess(updatedTransaction);
+                                    }
                                 }
                             }}
                             style={{ width: '100%', background: 'transparent', border: `1px solid ${RED}44`, borderRadius: '8px', color: RED, padding: '0.8rem', fontWeight: 800, fontSize: '0.72rem', letterSpacing: '0.08em', cursor: 'pointer', textTransform: 'uppercase', fontFamily: 'inherit' }}

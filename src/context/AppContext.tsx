@@ -53,10 +53,12 @@ type GlobalContextType = {
     handleCurrencyChange: (curr: 'ILS' | 'USD' | 'ARS' | 'EUR') => void;
     toggleTravelMode: () => Promise<void>;
     saveTransaction: (tx: Transaction) => Promise<void>;
+    updateTransaction: (tx: Transaction) => Promise<void>;
     handleDeleteTransaction: (id: string) => Promise<void>;
     setSelectedTransaction: (tx: Transaction | null) => void;
     loadUserData: (uid: string) => void;
     loadUserTransactions: (uid: string) => void;
+    authenticatedFetch: (input: RequestInfo | URL, init?: RequestInit, preferredToken?: string | null) => Promise<Response>;
     setCatSignal: React.Dispatch<React.SetStateAction<number>>;
 
     isAddModalOpen: boolean;
@@ -176,10 +178,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             handleCurrencyChange,
             toggleTravelMode,
             saveTransaction: txs.saveTransaction,
+            updateTransaction: txs.updateTransaction,
             handleDeleteTransaction: txs.handleDeleteTransaction,
             setSelectedTransaction: txs.setSelectedTransaction,
             loadUserData,
             loadUserTransactions: txs.loadUserTransactions,
+            authenticatedFetch: auth.authenticatedFetch,
             setCatSignal,
             isAddModalOpen: txs.isAddModalOpen,
             setIsAddModalOpen: txs.setIsAddModalOpen,
