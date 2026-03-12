@@ -31,11 +31,11 @@ export const Sidebar = ({
             </div>
 
             <nav className="nav-menu">
-                <Link href="/app" replace className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}>
+                <Link href="/app" scroll={false} className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} aria-current={activeTab === 'dashboard' ? 'page' : undefined}>
                     <IconShapes type="dashboard" />
                     <span>{t('nav.dashboard')}</span>
                 </Link>
-                <Link href="/app/movements" replace className={`nav-item ${activeTab === 'movements' ? 'active' : ''}`}>
+                <Link href="/app/movements" scroll={false} className={`nav-item ${activeTab === 'movements' ? 'active' : ''}`} aria-current={activeTab === 'movements' ? 'page' : undefined}>
                     <IconShapes type="card" />
                     <span>{t('nav.movements')}</span>
                 </Link>
@@ -46,11 +46,11 @@ export const Sidebar = ({
                     </div>
                 </button>
 
-                <Link href="/app/stats" replace className={`nav-item ${activeTab === 'stats' ? 'active' : ''}`}>
+                <Link href="/app/stats" scroll={false} className={`nav-item ${activeTab === 'stats' ? 'active' : ''}`} aria-current={activeTab === 'stats' ? 'page' : undefined}>
                     <IconShapes type="chart" />
                     <span>{t('nav.stats')}</span>
                 </Link>
-                <Link href="/app/profile" replace className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}>
+                <Link href="/app/profile" scroll={false} className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} aria-current={activeTab === 'profile' ? 'page' : undefined}>
                     <IconShapes type="user" />
                     <span>{t('nav.profile')}</span>
                 </Link>

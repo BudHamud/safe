@@ -29,6 +29,8 @@ export function useTransactions(
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [addModalInitialData, setAddModalInitialData] = useState<Partial<Transaction> | null>(null);
 
+    const normalizeTag = (value: string) => value.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
     const loadUserTransactions = async (uid: string, token?: string | null) => {
         setIsLoadingTransactions(true);
         try {
@@ -120,6 +122,30 @@ export function useTransactions(
         setSelectedTransaction(prev => prev?.id === updatedTx.id ? updatedTx : prev);
     };
 
+    const updateTransactionsCategory = async (oldTag: string, nextTag: string, nextIcon: string) => {
+        if (!userId) return;
+
+        const normalizedOldTag = normalizeTag(oldTag);
+        let nextTransactions: Transaction[] = [];
+
+        setTransactions(prev => {
+            nextTransactions = prev.map(tx =>
+                normalizeTag(tx.tag) === normalizedOldTag
+                    ? { ...tx, tag: nextTag, icon: nextIcon }
+                    : tx
+            );
+            return nextTransactions;
+        });
+
+        setSelectedTransaction(prev =>
+            prev && normalizeTag(prev.tag) === normalizedOldTag
+                ? { ...prev, tag: nextTag, icon: nextIcon }
+                : prev
+        );
+
+        await cacheTransactions(userId, nextTransactions);
+    };
+
     const allCategories = useMemo(() => {
         const catMap = new Map<string, Category>();
         const normalize = (s: string) => s.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -184,6 +210,7 @@ export function useTransactions(
         addModalInitialData, setAddModalInitialData,
         loadUserTransactions, saveTransaction, handleDeleteTransaction,
         updateTransaction,
+        updateTransactionsCategory,
         allCategories, mappedTransactions, totalIncome, totalExpense, currentBalance,
     };
 }

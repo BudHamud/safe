@@ -41,7 +41,7 @@ export const ProfileTab = ({
     const { lang, setLang, t } = useLanguage();
     const dialog = useDialog();
     const appContext = useAppContext();
-    const { accessToken } = appContext;
+    const { authenticatedFetch, updateTransactionsCategory } = appContext;
     const currencyOptions = [
         { value: 'ILS', label: t('profile.currency_ils') },
         { value: 'USD', label: t('profile.currency_usd') },
@@ -231,21 +231,26 @@ export const ProfileTab = ({
             localStorage.setItem('financeHiddenCategories', JSON.stringify(hiddenCats));
         }
         try {
-            const res = await fetch('/api/categories', {
+            const res = await authenticatedFetch('/api/categories', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
                 },
                 body: JSON.stringify({ oldTag: editingCategory.oldTag, newTag: editingCategory.newTag, newIcon: editingCategory.newIcon })
             });
-            if (res.ok) { onCategoryChangeInfo(); onUpdate(); setEditingCategory(null); }
+            if (res.ok) {
+                await updateTransactionsCategory(editingCategory.oldTag, editingCategory.newTag.trim(), editingCategory.newIcon);
+                onCategoryChangeInfo();
+                setEditingCategory(null);
+            }
             else await dialog.alert(t('profile.category_save_error'));
         } catch (e) { console.error(e); }
     };
 
     const deleteCategory = async (tag: string) => {
         if (!await dialog.confirm({ message: t('profile.category_delete_confirm', { tag }), tone: 'danger' })) return;
+        const previousCustomCategories = localStorage.getItem('financeCustomCategories');
+        const previousHiddenCategories = localStorage.getItem('financeHiddenCategories');
         const tagNFD = tag.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         let customStr = localStorage.getItem('financeCustomCategories');
         if (customStr) {
@@ -259,22 +264,47 @@ export const ProfileTab = ({
             hiddenCats.push(tag);
             localStorage.setItem('financeHiddenCategories', JSON.stringify(hiddenCats));
         }
+
+        await updateTransactionsCategory(tag, 'OTROS', '❓');
+        onCategoryChangeInfo();
+        if (editingCategory?.oldTag === tag) setEditingCategory(null);
+
         try {
-            const res = await fetch(`/api/categories?oldTag=${encodeURIComponent(tag)}`, {
+            const res = await authenticatedFetch(`/api/categories?oldTag=${encodeURIComponent(tag)}`, {
                 method: 'DELETE',
-                headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
             });
-            if (res.ok) { onCategoryChangeInfo(); onUpdate(); if (editingCategory?.oldTag === tag) setEditingCategory(null); }
-        } catch (e) { console.error(e); }
+            if (!res.ok) {
+                if (previousCustomCategories === null) localStorage.removeItem('financeCustomCategories');
+                else localStorage.setItem('financeCustomCategories', previousCustomCategories);
+
+                if (previousHiddenCategories === null) localStorage.removeItem('financeHiddenCategories');
+                else localStorage.setItem('financeHiddenCategories', previousHiddenCategories);
+
+                if (userId) appContext.loadUserTransactions(userId);
+                onCategoryChangeInfo();
+                await dialog.alert(t('profile.category_save_error'));
+            }
+        } catch (e) {
+            console.error(e);
+
+            if (previousCustomCategories === null) localStorage.removeItem('financeCustomCategories');
+            else localStorage.setItem('financeCustomCategories', previousCustomCategories);
+
+            if (previousHiddenCategories === null) localStorage.removeItem('financeHiddenCategories');
+            else localStorage.setItem('financeHiddenCategories', previousHiddenCategories);
+
+            if (userId) appContext.loadUserTransactions(userId);
+            onCategoryChangeInfo();
+            await dialog.alert(t('profile.category_save_error'));
+        }
     };
 
     const saveGoal = async () => {
         try {
-            const res = await fetch('/api/user', {
+            const res = await authenticatedFetch('/api/user', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
                 },
                 body: JSON.stringify({ monthlyGoal: parseFloat(newGoal) })
             });
@@ -301,11 +331,10 @@ export const ProfileTab = ({
 
         setIsChangingPassword(true);
         try {
-            const res = await fetch('/api/auth/password/change', {
+            const res = await authenticatedFetch('/api/auth/password/change', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
                 },
                 body: JSON.stringify({
                     currentPassword: passwordForm.currentPassword,
@@ -353,11 +382,10 @@ export const ProfileTab = ({
 
         setIsChangingEmail(true);
         try {
-            const res = await fetch('/api/auth/email/change', {
+            const res = await authenticatedFetch('/api/auth/email/change', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
                 },
                 body: JSON.stringify({ newEmail: normalizedEmail })
             });
@@ -392,9 +420,8 @@ export const ProfileTab = ({
 
         setIsDeletingAccount(true);
         try {
-            const res = await fetch('/api/user', {
+            const res = await authenticatedFetch('/api/user', {
                 method: 'DELETE',
-                headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
             });
 
             if (!res.ok) {

@@ -54,6 +54,7 @@ type GlobalContextType = {
     toggleTravelMode: () => Promise<void>;
     saveTransaction: (tx: Transaction) => Promise<void>;
     updateTransaction: (tx: Transaction) => Promise<void>;
+    updateTransactionsCategory: (oldTag: string, nextTag: string, nextIcon: string) => Promise<void>;
     handleDeleteTransaction: (id: string) => Promise<void>;
     setSelectedTransaction: (tx: Transaction | null) => void;
     loadUserData: (uid: string) => void;
@@ -179,6 +180,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             toggleTravelMode,
             saveTransaction: txs.saveTransaction,
             updateTransaction: txs.updateTransaction,
+            updateTransactionsCategory: txs.updateTransactionsCategory,
             handleDeleteTransaction: txs.handleDeleteTransaction,
             setSelectedTransaction: txs.setSelectedTransaction,
             loadUserData,

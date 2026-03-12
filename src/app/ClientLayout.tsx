@@ -103,6 +103,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         };
     }, [permissionGranted, processNotification, requestPermission]);
 
+    useEffect(() => {
+        if (!context.userName) return;
+
+        router.prefetch('/app');
+        router.prefetch('/app/movements');
+        router.prefetch('/app/stats');
+        router.prefetch('/app/profile');
+    }, [context.userName, router]);
+
     if (!context.isClient) return null;
 
     // Sin sesión: devolvemos children directo (la página /app lo maneja con AuthModal)
