@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { StatsTab } from "../../components/StatsTab";
+import { StatsTab } from "../../components/stats";
 import { useAppContext } from "../../../context/AppContext";
 
 export default function StatsPage() {

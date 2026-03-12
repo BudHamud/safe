@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLanguage } from "../../context/LanguageContext";
-import { PrivacyPolicyContent } from "../components/PrivacyPolicyContent";
+import { PrivacyPolicyContent } from "../components/legal";
 
 export default function PrivacyPage() {
     const { lang, setLang } = useLanguage();

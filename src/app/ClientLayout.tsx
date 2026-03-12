@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
-import { Sidebar } from "./components/Sidebar";
-import { AuthModal } from "./components/AuthModal";
-import { NewOrderModal } from "./components/NewOrderModal";
-import { TransactionDetailsModal } from "./components/TransactionDetailsModal";
-import { BankNotifToast } from "./components/BankNotifToast";
-import { ColorCustomizerOverlay } from "./components/ColorCustomizerOverlay";
-import { IconShapes } from "./components/Icons";
+import React, { useEffect, useState } from "react";
+import { DataVaultLoader, IconShapes, Sidebar } from "./components/layout";
+import { AuthModal } from "./components/auth";
+import { NewOrderModal } from "./components/orders";
+import { TransactionDetailsModal } from "./components/transactions";
+import { BankNotifToast } from "./components/bank";
+import { ColorCustomizerOverlay } from "./components/customization";
 import { useAppContext } from "../context/AppContext";
 import { useBankNotifications, PendingBankTransaction } from "../hooks/useBankNotifications";
 import { useLanguage } from "../context/LanguageContext";
@@ -41,7 +40,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
     const onAutoSaved = React.useCallback(() => {
         if (context.userId) context.loadUserTransactions(context.userId);
-    }, [context.userId, context.loadUserTransactions]);
+    }, [context]);
 
     // ── Bank notification listener ─────────────────────────────
     const {
@@ -77,7 +76,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }, [context]);
 
     // ── Expose bank sync controls globally so ProfileTab can call them ──
-    if (typeof window !== 'undefined') {
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
         (window as any).__setBankSync = (enabled: boolean) => {
             setBankSyncEnabled(enabled);
             localStorage.setItem('bankSyncEnabled', String(enabled));
@@ -85,14 +86,22 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 requestPermission();
             }
         };
+
         (window as any).__setBankAutoAdd = (enabled: boolean) => {
             setAutoAddEnabled(enabled);
             localStorage.setItem('bankAutoAddEnabled', String(enabled));
         };
+
         (window as any).__debugNotify = ({ packageName, title, text }: any) => {
             processNotification(packageName, title, text);
         };
-    }
+
+        return () => {
+            delete (window as any).__setBankSync;
+            delete (window as any).__setBankAutoAdd;
+            delete (window as any).__debugNotify;
+        };
+    }, [permissionGranted, processNotification, requestPermission]);
 
     if (!context.isClient) return null;
 
@@ -113,6 +122,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
     return (
         <div className="app-wrapper">
+            <DataVaultLoader
+                isVisible={context.isLoadingTransactions}
+                title={t('common.loading_data')}
+                subtitle={t('common.loading_data_hint')}
+            />
+
             <Sidebar
                 theme={context.theme}
                 toggleTheme={context.toggleTheme}

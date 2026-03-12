@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
-import { DashboardTab } from "../components/DashboardTab";
+import { DashboardTab } from "../components/dashboard";
 import { useAppContext } from "../../context/AppContext";
-import { AuthModal } from "../components/AuthModal";
+import { AuthModal } from "../components/auth";
 
 export default function AppDashboardPage() {
     const context = useAppContext();

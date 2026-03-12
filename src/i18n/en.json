@@ -201,6 +201,8 @@
     "common.no_data": "No data",
     "common.see_all": "SEE ALL",
     "common.used": "Used",
+    "common.loading_data": "Loading data",
+    "common.loading_data_hint": "We are unlocking your transactions and preparing the dashboard.",
     "details.save_error": "Error while saving",
     "details.recalculate_save_error": "Error recalculating exchange rates or saving.",
     "details.delete_order_title": "Delete Order?",

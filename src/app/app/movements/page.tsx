@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { MovementsTab } from "../../components/MovementsTab";
+import { MovementsTab } from "../../components/movements";
 import { useAppContext } from "../../../context/AppContext";
 
 export default function MovementsPage() {

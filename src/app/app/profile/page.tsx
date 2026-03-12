@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { ProfileTab } from "../../components/ProfileTab";
+import { ProfileTab } from "../../components/profile";
 import { useAppContext } from "../../../context/AppContext";
 import { useRouter } from "next/navigation";
 

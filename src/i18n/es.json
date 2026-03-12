@@ -201,6 +201,8 @@
     "common.no_data": "Sin datos",
     "common.see_all": "VER TODO",
     "common.used": "Usado",
+    "common.loading_data": "Cargando datos",
+    "common.loading_data_hint": "Estamos destrabando tus movimientos y preparando el tablero.",
     "details.save_error": "Error al guardar",
     "details.recalculate_save_error": "Error al recalcular cotizaciones o guardar.",
     "details.delete_order_title": "¿Eliminar Orden?",
